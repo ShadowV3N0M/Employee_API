@@ -621,7 +621,7 @@ git reset --soft HEAD~1
         ├── auth.jsx                 # Login session / current user
         ├── format.js                # Number & date formatting
         ├── styles.css
-        ├── components/              # Layout, Modal, EmployeeForm, SalaryModal, HistoryModal
+        ├── components/              # Layout, Modal, EmployeeDetailModal, EmployeeForm, SalaryModal, HistoryModal
         └── pages/                   # Login, ResetPassword, Employees, Departments, Users
 ```
 
@@ -678,6 +678,17 @@ git reset --soft HEAD~1
 - Added root URL redirect (`GET /` -> `/docs`) for immediate interactive Swagger documentation.
 - Configured default server host binding to `0.0.0.0:8000` to resolve `ERR_CONNECTION_REFUSED` across IPv4 and IPv6 `localhost`.
 
+### 7. Interactive Role-Based Employee Detail Popup Modal & Single-Profile Endpoint
+- **Role-Aware Single Employee Endpoint (`GET /employees/{emp_id}`):**
+  - Powers on-demand employee inspection with role filtering handled by `employee_view()`.
+  - For `admin` and `manager`, supplies `Emp_ID`, `F_Name`, `L_Name`, `Dept_ID`, `Email`, `Salary`, `Address`, `is_active`, `created_at`, and `updated_at`.
+  - For standard `user`, withholds confidential fields (`Salary`, `Address`, timestamps) while returning public directory information (`Emp_ID`, `F_Name`, `L_Name`, `Dept_ID`, `Email`, `is_active`).
+- **Frontend Detail Modal Integration (`EmployeeDetailModal.jsx`):**
+  - Clicking any table row (or clicking the dedicated **View** button) opens an individual profile modal.
+  - Standard users see a clear confidentiality notice: *“Salary compensation, residential address, and salary revision history are confidential and visible to managers and administrators only.”*
+  - Admins have access to integrated action controls directly within the popup: `Deactivate/Restore`, `Adjust Salary`, `Edit Profile`, and `Salary History`.
+  - Handled `e.stopPropagation()` on row action buttons to prevent unintentional modal popups when clicking inline actions.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -685,6 +696,7 @@ git reset --soft HEAD~1
 - [x] **Modular architecture refactor** - Clean `app/` structure with models, schemas, auth, services, and routers
 - [x] **Bulk operations & Excel/CSV importer** - Batch import, delete, template download, and payroll analytics
 - [x] **Joining-date auto email generation** - Collision detection with year suffixes and counter fallbacks
+- [x] **Interactive Role-Based Employee Detail Popup Modal** - Row-click modal and role-masked single profile API (`GET /employees/{emp_id}`)
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 
