@@ -168,6 +168,7 @@ The API enforces strict Role-Based Access Control across three user roles: **`us
 | `GET` | `/employees/salary/summary` | ❌ | ❌ | ✅ | ✅ | View company-wide and department payroll analytics |
 | `PUT` | `/auth/change-password` | ❌ | ✅ | ✅ | ✅ | Change own account password (requires old password) |
 | `GET` | `/auth/users` | ❌ | ❌ | ❌ | ✅ | List all users with their roles (no password hashes) |
+| `POST` | `/auth/users` | ❌ | ❌ | ❌ | ✅ | Create a new user with designated role (`user`, `manager`, `admin`) |
 | `PUT` | `/auth/users/{username}/role` | ❌ | ❌ | ❌ | ✅ | Promote or demote user role (`user`, `manager`, `admin`) |
 | `PUT` | `/auth/users/{username}/status` | ❌ | ❌ | ❌ | ✅ | Activate or deactivate a user account |
 | `DELETE` | `/auth/users/{username}` | ❌ | ❌ | ❌ | ✅ | Delete user account (cannot delete own account) |
@@ -689,6 +690,18 @@ git reset --soft HEAD~1
   - Admins have access to integrated action controls directly within the popup: `Deactivate/Restore`, `Adjust Salary`, `Edit Profile`, and `Salary History`.
   - Handled `e.stopPropagation()` on row action buttons to prevent unintentional modal popups when clicking inline actions.
 
+### 8. Full Admin User Management CRUD & Permanent Delete Endpoint
+- **Direct User Creation (`POST /auth/users`):** Admin-only endpoint allowing instant provisioning of user accounts with designated roles (`user`, `manager`, `admin`), password validation, and optional email.
+- **Enhanced Permanent Deletion (`DELETE /auth/users/{username}`):**
+  - Supports username or numeric user ID lookup.
+  - Self-deletion guard: Admins cannot delete their own account (`400 Bad Request`).
+  - Foreign key cascade: Explicitly removes associated password reset tokens prior to account deletion.
+- **Full Frontend Admin Control Panel (`Users.jsx`):**
+  - Real-time search filter by username, email, or role.
+  - `+ Add User` modal dialog.
+  - Deactivate/Activate account status toggling.
+  - Permanent delete action with confirmation dialog.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -697,6 +710,7 @@ git reset --soft HEAD~1
 - [x] **Bulk operations & Excel/CSV importer** - Batch import, delete, template download, and payroll analytics
 - [x] **Joining-date auto email generation** - Collision detection with year suffixes and counter fallbacks
 - [x] **Interactive Role-Based Employee Detail Popup Modal** - Row-click modal and role-masked single profile API (`GET /employees/{emp_id}`)
+- [x] **Full Admin User CRUD & Account Deletion** - Direct user creation, role assignment, status toggling, and permanent account deletion (`DELETE /auth/users/{username}`)
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 

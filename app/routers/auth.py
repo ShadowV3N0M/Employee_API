@@ -24,6 +24,7 @@ from app.schemas.auth import (
     ResetPasswordConfirm,
     RoleUpdate,
     Token,
+    UserCreateAdmin,
     UserRegister,
     UserStatusUpdate,
 )
@@ -282,6 +283,60 @@ def list_users(
             status_code=500, detail=f"Database error: {str(e)}")
 
 
+@router.post("/users")
+@limiter.limit("10/minute")
+def create_user_by_admin(
+    request: Request,
+    payload: UserCreateAdmin,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin)
+):
+    """Admin only. Create a new user with a designated role (user, manager, admin)."""
+    uname = payload.username.strip()
+    if len(uname) < 3:
+        raise HTTPException(
+            status_code=400, detail="Username must be at least 3 characters long")
+    if len(payload.password) < 6:
+        raise HTTPException(
+            status_code=400, detail="Password must be at least 6 characters long")
+
+    role = (payload.role or "user").strip().lower()
+    if role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=400, detail=f"Role must be one of: {sorted(VALID_ROLES)}")
+
+    existing = db.query(UserDB).filter(UserDB.username == uname).first()
+    if existing:
+        raise HTTPException(
+            status_code=409, detail=f"Username '{uname}' already exists")
+
+    try:
+        new_user = UserDB(
+            username=uname,
+            hashed_password=hash_password(payload.password),
+            email=payload.email.strip() if payload.email and payload.email.strip() else None,
+            role=role,
+            is_active=True
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return {
+            "message": f"User '{new_user.username}' created successfully as '{new_user.role}'",
+            "user": {
+                "id": new_user.id,
+                "username": new_user.username,
+                "email": new_user.email,
+                "role": new_user.role,
+                "is_active": new_user.is_active,
+            }
+        }
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+
 @router.put("/users/{username}/role")
 @limiter.limit("10/minute")
 def change_user_role(
@@ -387,20 +442,28 @@ def delete_user(
     current_user: UserDB = Depends(require_admin)
 ):
     """Admin only. Permanently delete a user account."""
-    if username == current_user.username:
+    target = db.query(UserDB).filter(UserDB.username == username).first()
+    if target is None and username.isdigit():
+        target = db.query(UserDB).filter(UserDB.id == int(username)).first()
+
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if target.username == current_user.username or target.id == current_user.id:
         raise HTTPException(
             status_code=400,
             detail="You cannot delete your own account"
         )
 
-    target = db.query(UserDB).filter(UserDB.username == username).first()
-    if target is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
     try:
+        # Explicitly delete any password reset tokens associated with this user
+        db.query(PasswordResetTokenDB).filter(
+            PasswordResetTokenDB.user_id == target.id).delete()
+        
+        target_name = target.username
         db.delete(target)
         db.commit()
-        return {"message": f"User '{username}' permanently deleted"}
+        return {"message": f"User '{target_name}' permanently deleted"}
     except SQLAlchemyError as e:
         db.rollback()
         raise HTTPException(

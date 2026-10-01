@@ -15,6 +15,7 @@ from app.schemas.employee import (
 )
 from app.schemas.auth import (
     UserRegister,
+    UserCreateAdmin,
     RoleUpdate,
     ChangePasswordRequest,
     UserStatusUpdate,
@@ -35,6 +36,7 @@ __all__ = [
     "BulkEmployeeDelete",
     "BulkSalaryIncrement",
     "UserRegister",
+    "UserCreateAdmin",
     "RoleUpdate",
     "ChangePasswordRequest",
     "UserStatusUpdate",

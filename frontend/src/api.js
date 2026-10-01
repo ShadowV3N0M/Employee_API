@@ -104,6 +104,7 @@ export const api = {
 
   // --- users (admin) ---
   listUsers: () => request("/auth/users"),
+  createUser: (body) => request("/auth/users", { method: "POST", body }),
   changeRole: (username, role) =>
     request(`/auth/users/${encodeURIComponent(username)}/role`, {
       method: "PUT",

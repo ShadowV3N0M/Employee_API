@@ -9,6 +9,13 @@ class UserRegister(BaseModel):
     email: Optional[str] = None
 
 
+class UserCreateAdmin(BaseModel):
+    username: str
+    password: str
+    email: Optional[str] = None
+    role: Optional[str] = "user"
+
+
 class ForgotPasswordRequest(BaseModel):
     identifier: str  # username or email address
 

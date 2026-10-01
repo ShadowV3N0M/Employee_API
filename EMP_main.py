@@ -24,6 +24,7 @@ from app.schemas import (
     SalaryIncrement,
     SalarySet,
     Token,
+    UserCreateAdmin,
     UserRegister,
     UserStatusUpdate,
 )

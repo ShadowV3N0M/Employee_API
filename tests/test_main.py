@@ -737,3 +737,68 @@ def test_bulk_salary_increment_and_summary():
     }, headers=admin)
     assert res_inc.status_code == 200
 
+
+def test_admin_delete_user_and_crud():
+    """Verify admin can delete users and perform user CRUD, with self-delete protection."""
+    admin = headers_for("admin")
+    user_headers = headers_for("user")
+
+    # 1. Register a user to be deleted
+    reg_res = client.post("/auth/register", json={
+        "username": "user_to_delete",
+        "password": "password123"
+    })
+    assert reg_res.status_code == 200
+
+    # 2. Non-admin cannot delete user
+    res_forbidden = client.delete("/auth/users/user_to_delete", headers=user_headers)
+    assert res_forbidden.status_code == 403
+
+    # 3. Admin cannot delete their own account
+    res_self = client.delete("/auth/users/admin_tester", headers=admin)
+    assert res_self.status_code == 400
+    assert "cannot delete your own account" in res_self.json()["detail"].lower()
+
+    # 4. Admin can delete user
+    res_del = client.delete("/auth/users/user_to_delete", headers=admin)
+    assert res_del.status_code == 200
+    assert "permanently deleted" in res_del.json()["message"].lower()
+
+    # 5. User is gone from user list
+    users = client.get("/auth/users", headers=admin).json()
+    assert not any(u["username"] == "user_to_delete" for u in users)
+
+    # 6. Deleting non-existent user returns 404
+    res_404 = client.delete("/auth/users/user_to_delete", headers=admin)
+    assert res_404.status_code == 404
+
+
+def test_admin_create_user_with_role():
+    """Verify admin can directly provision a new user with a specified role."""
+    admin = headers_for("admin")
+    user_headers = headers_for("user")
+
+    # Non-admin cannot create users via /auth/users
+    res_forbidden = client.post("/auth/users", json={
+        "username": "direct_mgr",
+        "password": "password123",
+        "role": "manager"
+    }, headers=user_headers)
+    assert res_forbidden.status_code == 403
+
+    # Admin can create user with role 'manager'
+    res_create = client.post("/auth/users", json={
+        "username": "direct_mgr",
+        "password": "password123",
+        "email": "direct_mgr@laesfera.co",
+        "role": "manager"
+    }, headers=admin)
+    assert res_create.status_code == 200
+    body = res_create.json()
+    assert body["user"]["username"] == "direct_mgr"
+    assert body["user"]["role"] == "manager"
+
+    # Clean up created test user
+    client.delete("/auth/users/direct_mgr", headers=admin)
+
+
