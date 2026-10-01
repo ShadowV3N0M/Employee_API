@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function Login() {
   const { user, signIn } = useAuth();
@@ -50,6 +51,9 @@ export default function Login() {
 
   return (
     <div className="login-wrap">
+      <div style={{ position: "absolute", top: "20px", right: "20px" }}>
+        <ThemeToggle />
+      </div>
       <form className="card login-card" onSubmit={handleSubmit}>
         <h1>Employee Management</h1>
         <p className="muted">

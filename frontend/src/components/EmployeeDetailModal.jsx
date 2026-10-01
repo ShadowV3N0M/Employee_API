@@ -97,7 +97,7 @@ export default function EmployeeDetailModal({
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
             gap: "12px",
-            background: "#fff",
+            background: "var(--surface)",
             border: "1px solid var(--border)",
             borderRadius: "8px",
             padding: "14px"
@@ -134,7 +134,7 @@ export default function EmployeeDetailModal({
               display: "grid",
               gridTemplateColumns: "1fr 1fr",
               gap: "12px",
-              background: "#fff",
+              background: "var(--surface)",
               border: "1px solid var(--border)",
               borderRadius: "8px",
               padding: "14px"
@@ -174,7 +174,7 @@ export default function EmployeeDetailModal({
         ) : (
           /* Limited view confidentiality notice for standard users */
           <div style={{
-            background: "#f8fafc",
+            background: "var(--surface-alt)",
             border: "1px dashed var(--border)",
             borderRadius: "8px",
             padding: "14px",

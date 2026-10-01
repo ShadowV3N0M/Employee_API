@@ -620,9 +620,10 @@ git reset --soft HEAD~1
         ├── App.jsx                  # Routes + role-based route guard
         ├── api.js                   # Every backend call + error handling
         ├── auth.jsx                 # Login session / current user
+        ├── theme.jsx                # Theme context & persistent state
         ├── format.js                # Number & date formatting
-        ├── styles.css
-        ├── components/              # Layout, Modal, EmployeeDetailModal, EmployeeForm, SalaryModal, HistoryModal
+        ├── styles.css               # Global responsive CSS with dark/light custom properties
+        ├── components/              # Layout, ThemeToggle, Modal, EmployeeDetailModal, EmployeeForm, SalaryModal, HistoryModal
         └── pages/                   # Login, ResetPassword, Employees, Departments, Users
 ```
 
@@ -702,6 +703,11 @@ git reset --soft HEAD~1
   - Deactivate/Activate account status toggling.
   - Permanent delete action with confirmation dialog.
 
+### 9. Dark / Light Theme System & Theme Selector
+- **Custom Properties Architecture:** Added full set of CSS variables (`--bg`, `--surface`, `--surface-alt`, `--border`, `--text`, `--muted`, `--primary`, `--danger`, `--ok`, `--input-bg`, `--th-bg`, `--row-hover`, `--shadow`) supporting high-contrast Dark and crisp Light modes.
+- **Dynamic Theme Context:** React `ThemeProvider` with auto system detection (`prefers-color-scheme: dark`), local storage persistence, and immediate HTML attribute synchronization (`data-theme="dark"`).
+- **Universal Toggle:** Integrated `ThemeToggle` component across top navigation bar and pre-login screen.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -711,6 +717,7 @@ git reset --soft HEAD~1
 - [x] **Joining-date auto email generation** - Collision detection with year suffixes and counter fallbacks
 - [x] **Interactive Role-Based Employee Detail Popup Modal** - Row-click modal and role-masked single profile API (`GET /employees/{emp_id}`)
 - [x] **Full Admin User CRUD & Account Deletion** - Direct user creation, role assignment, status toggling, and permanent account deletion (`DELETE /auth/users/{username}`)
+- [x] **Dark / Light Theme Toggle** - Theme selector using CSS custom properties, persistent state & system media query
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 
