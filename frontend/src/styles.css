@@ -67,6 +67,8 @@ th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { color: var(--text); }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: #fafbff; }
+tr.clickable-row { cursor: pointer; transition: background-color 0.15s ease-in-out; }
+tr.clickable-row:hover { background: #f0f4ff !important; }
 tr.inactive td { color: var(--muted); }
 
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }

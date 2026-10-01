@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { isPrivileged, useAuth } from "../auth";
 import { formatMoney } from "../format";
+import EmployeeDetailModal from "../components/EmployeeDetailModal";
 import EmployeeForm from "../components/EmployeeForm";
 import ExcelImportModal from "../components/ExcelImportModal";
 import HistoryModal from "../components/HistoryModal";
 import SalaryModal from "../components/SalaryModal";
-
 
 const PAGE_SIZE = 10;
 
@@ -24,7 +24,7 @@ export default function Employees() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [modal, setModal] = useState(null); // { type: "form" | "salary" | "history", employee }
+  const [modal, setModal] = useState(null); // { type: "form" | "salary" | "history" | "excel" | "detail", employee }
   const [reloadKey, setReloadKey] = useState(0);
 
   const reload = () => setReloadKey((k) => k + 1);
@@ -100,7 +100,7 @@ export default function Employees() {
   }
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
-  const columnCount = privileged ? 8 : 5;
+  const columnCount = privileged ? 8 : 6;
 
   return (
     <>
@@ -110,6 +110,9 @@ export default function Employees() {
           <p className="muted">
             {data.total} {data.total === 1 ? "employee" : "employees"}
             {!privileged && " · salary and address are visible to managers and admins only"}
+          </p>
+          <p className="muted small" style={{ margin: "4px 0 0 0" }}>
+            💡 Click any employee row to open their profile popup
           </p>
         </div>
 
@@ -168,7 +171,7 @@ export default function Employees() {
               )}
               {privileged && <th>Address</th>}
               <th>Status</th>
-              {privileged && <th className="right">Actions</th>}
+              <th className="right">Actions</th>
             </tr>
           </thead>
 
@@ -182,9 +185,15 @@ export default function Employees() {
             )}
 
             {data.items.map((emp) => (
-              <tr key={emp.Emp_ID} className={emp.is_active ? "" : "inactive"}>
+              <tr
+                key={emp.Emp_ID}
+                className={`clickable-row ${emp.is_active ? "" : "inactive"}`}
+                onClick={() => setModal({ type: "detail", employee: emp })}
+                title="Click to view full employee profile"
+                style={{ cursor: "pointer" }}
+              >
                 <td>{emp.Emp_ID}</td>
-                <td>{emp.F_Name} {emp.L_Name}</td>
+                <td><strong>{emp.F_Name} {emp.L_Name}</strong></td>
                 <td>{emp.Email || "—"}</td>
                 <td>{deptName[emp.Dept_ID] ?? `#${emp.Dept_ID}`}</td>
                 {privileged && <td className="num">{formatMoney(emp.Salary)}</td>}
@@ -194,20 +203,29 @@ export default function Employees() {
                     {emp.is_active ? "Active" : "Inactive"}
                   </span>
                 </td>
-                {privileged && (
-                  <td className="right nowrap">
-                    <button className="btn small ghost" onClick={() => setModal({ type: "form", employee: emp })}>Edit</button>
-                    <button className="btn small ghost" onClick={() => setModal({ type: "history", employee: emp })}>History</button>
-                    {isAdmin && (
-                      <>
-                        <button className="btn small ghost" onClick={() => setModal({ type: "salary", employee: emp })}>Salary</button>
-                        <button className="btn small danger" onClick={() => toggleActive(emp)}>
-                          {emp.is_active ? "Deactivate" : "Restore"}
-                        </button>
-                      </>
-                    )}
-                  </td>
-                )}
+                <td className="right nowrap" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="btn small ghost"
+                    onClick={() => setModal({ type: "detail", employee: emp })}
+                    title="View details"
+                  >
+                    View
+                  </button>
+                  {privileged && (
+                    <>
+                      <button className="btn small ghost" onClick={() => setModal({ type: "form", employee: emp })}>Edit</button>
+                      <button className="btn small ghost" onClick={() => setModal({ type: "history", employee: emp })}>History</button>
+                      {isAdmin && (
+                        <>
+                          <button className="btn small ghost" onClick={() => setModal({ type: "salary", employee: emp })}>Salary</button>
+                          <button className="btn small danger" onClick={() => toggleActive(emp)}>
+                            {emp.is_active ? "Deactivate" : "Restore"}
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -220,6 +238,18 @@ export default function Employees() {
         <button className="btn ghost" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next →</button>
       </div>
 
+      {modal?.type === "detail" && (
+        <EmployeeDetailModal
+          employee={modal.employee}
+          departments={departments}
+          role={user.role}
+          onClose={closeModal}
+          onEdit={(emp) => setModal({ type: "form", employee: emp })}
+          onSalary={(emp) => setModal({ type: "salary", employee: emp })}
+          onHistory={(emp) => setModal({ type: "history", employee: emp })}
+          onToggleActive={toggleActive}
+        />
+      )}
       {modal?.type === "form" && (
         <EmployeeForm
           employee={modal.employee}
@@ -237,6 +267,5 @@ export default function Employees() {
         <ExcelImportModal onClose={closeModal} onSuccess={saved} />
       )}
     </>
-
   );
 }

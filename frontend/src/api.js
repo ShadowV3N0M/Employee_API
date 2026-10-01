@@ -133,6 +133,7 @@ export const api = {
 
   // --- employees ---
   listEmployees: (params) => request(`/employees?${new URLSearchParams(params)}`),
+  getEmployee: (id) => request(`/employees/${id}`),
   createEmployee: (body) => request("/employees", { method: "POST", body }),
   updateEmployee: (id, body) => request(`/employees/${id}`, { method: "PATCH", body }),
   deactivateEmployee: (id) => request(`/employees/${id}/deactivate`, { method: "DELETE" }),
