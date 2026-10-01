@@ -1,0 +1,249 @@
+"""Department management router."""
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import func
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.auth.dependencies import get_current_user, require_admin
+from app.config import limiter
+from app.database import get_db
+from app.models.department import DepartmentDB
+from app.models.employee import EmployeeDB
+from app.models.user import UserDB
+from app.schemas.department import DepartmentBulkCreate, DepartmentCreate, DepartmentUpdate
+from app.services.employee_service import employee_view
+
+router = APIRouter(prefix="/departments", tags=["Departments"])
+
+
+@router.post("")
+@limiter.limit("10/minute")
+def create_department(
+    request: Request,
+    dept: DepartmentCreate,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin)
+):
+    """Admin only. Create a new company department."""
+    try:
+        existing = db.query(DepartmentDB).filter(
+            func.lower(DepartmentDB.Dept_Name) == dept.Dept_Name.strip().lower()
+        ).first()
+
+        if existing:
+            raise HTTPException(
+                status_code=409, detail="Department already exists")
+
+        new_dept = DepartmentDB(
+            Dept_Name=dept.Dept_Name.strip(), Budget=dept.Budget)
+        db.add(new_dept)
+        db.commit()
+        db.refresh(new_dept)
+
+        return new_dept
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.post("/bulk-create")
+@limiter.limit("10/minute")
+def bulk_create_departments(
+    request: Request,
+    payload: DepartmentBulkCreate,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin)
+):
+    """Admin only. Create multiple departments in a single batch."""
+    if not payload.departments:
+        raise HTTPException(
+            status_code=400, detail="Departments list cannot be empty")
+
+    created = []
+    skipped = []
+
+    try:
+        for item in payload.departments:
+            name = item.Dept_Name.strip()
+            existing = db.query(DepartmentDB).filter(
+                func.lower(DepartmentDB.Dept_Name) == name.lower()
+            ).first()
+
+            if existing:
+                skipped.append({"name": name, "reason": "Already exists"})
+                continue
+
+            new_d = DepartmentDB(Dept_Name=name, Budget=item.Budget)
+            db.add(new_d)
+            db.flush()
+            created.append(
+                {"Dept_ID": new_d.Dept_ID, "Dept_Name": new_d.Dept_Name, "Budget": float(new_d.Budget or 0)})
+
+        db.commit()
+        return {
+            "message": f"Successfully created {len(created)} department(s), {len(skipped)} skipped",
+            "created": created,
+            "skipped": skipped,
+        }
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.get("")
+def list_departments(
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user)
+):
+    """Any authenticated user. Retrieve all company departments."""
+    try:
+        return db.query(DepartmentDB).all()
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.get("/{dept_id}")
+def get_department(
+    dept_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user)
+):
+    """Retrieve single department with headcount and budget analytics."""
+    dept = db.query(DepartmentDB).filter(
+        DepartmentDB.Dept_ID == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    # Count active employees
+    headcount = db.query(func.count(EmployeeDB.Emp_ID)).filter(
+        EmployeeDB.Dept_ID == dept_id,
+        EmployeeDB.is_active == True  # noqa: E712
+    ).scalar() or 0
+
+    total_payroll = 0.0
+    if current_user.role in ("admin", "manager"):
+        total_payroll = float(db.query(func.sum(EmployeeDB.Salary)).filter(
+            EmployeeDB.Dept_ID == dept_id,
+            EmployeeDB.is_active == True  # noqa: E712
+        ).scalar() or 0.0)
+
+    res = {
+        "Dept_ID": dept.Dept_ID,
+        "Dept_Name": dept.Dept_Name,
+        "Budget": float(dept.Budget) if dept.Budget is not None else None,
+        "headcount": headcount,
+    }
+    if current_user.role in ("admin", "manager"):
+        res["total_active_payroll"] = total_payroll
+        if dept.Budget:
+            res["budget_utilization_pct"] = round(
+                (total_payroll / float(dept.Budget)) * 100, 2)
+
+    return res
+
+
+@router.get("/{dept_id}/employees")
+def list_department_employees(
+    dept_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user)
+):
+    """List all employees in a specific department with RBAC field visibility."""
+    dept = db.query(DepartmentDB).filter(
+        DepartmentDB.Dept_ID == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    employees = db.query(EmployeeDB).filter(
+        EmployeeDB.Dept_ID == dept_id,
+        EmployeeDB.is_active == True  # noqa: E712
+    ).all()
+
+    return [employee_view(e, current_user.role) for e in employees]
+
+
+@router.put("/{dept_id}")
+@limiter.limit("10/minute")
+def update_department(
+    request: Request,
+    dept_id: int,
+    payload: DepartmentUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin)
+):
+    """Admin only. Update a department's name or budget."""
+    dept = db.query(DepartmentDB).filter(
+        DepartmentDB.Dept_ID == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    try:
+        if payload.Dept_Name is not None and payload.Dept_Name.strip():
+            # Check unique name constraint
+            name_check = db.query(DepartmentDB).filter(
+                func.lower(
+                    DepartmentDB.Dept_Name) == payload.Dept_Name.strip().lower(),
+                DepartmentDB.Dept_ID != dept_id
+            ).first()
+            if name_check:
+                raise HTTPException(
+                    status_code=409, detail="Another department already uses this name")
+            dept.Dept_Name = payload.Dept_Name.strip()
+
+        if payload.Budget is not None:
+            if payload.Budget < 0:
+                raise HTTPException(
+                    status_code=400, detail="Budget cannot be negative")
+            dept.Budget = payload.Budget
+
+        db.commit()
+        db.refresh(dept)
+        return dept
+    except HTTPException:
+        db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.delete("/{dept_id}")
+@limiter.limit("10/minute")
+def delete_department(
+    request: Request,
+    dept_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin)
+):
+    """Admin only. Delete a department (prevented if employees are still assigned)."""
+    dept = db.query(DepartmentDB).filter(
+        DepartmentDB.Dept_ID == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    employee_count = db.query(func.count(EmployeeDB.Emp_ID)).filter(
+        EmployeeDB.Dept_ID == dept_id
+    ).scalar() or 0
+
+    if employee_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete department '{dept.Dept_Name}': {employee_count} employee(s) are assigned to it. Reassign or delete them first."
+        )
+
+    try:
+        db.delete(dept)
+        db.commit()
+        return {"message": f"Department '{dept.Dept_Name}' (ID {dept_id}) deleted successfully"}
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")

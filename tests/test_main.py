@@ -1,0 +1,739 @@
+import sys
+from pathlib import Path
+
+# Ensure employee_api directory is in sys.path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from fastapi.testclient import TestClient
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from EMP_main import app, Base, get_db, UserDB, hash_password, limiter
+
+
+
+# Rate limits are covered by production config, not these tests
+limiter.enabled = False
+
+TEST_DATABASE_URL = "sqlite:///./test.db"
+engine = create_engine(TEST_DATABASE_URL, connect_args={
+                       "check_same_thread": False})
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=engine)
+
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = override_get_db
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_db():
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
+
+
+client = TestClient(app)
+
+
+def make_user(username, password, role):
+    """Seed a user straight into the DB (registration can only create plain users)."""
+    db = TestingSessionLocal()
+    try:
+        if not db.query(UserDB).filter(UserDB.username == username).first():
+            db.add(UserDB(
+                username=username,
+                hashed_password=hash_password(password),
+                role=role
+            ))
+            db.commit()
+    finally:
+        db.close()
+
+
+def token_for(role, password="testpass123"):
+    username = f"{role}_tester"
+    make_user(username, password, role)
+
+    response = client.post(
+        "/auth/login", data={"username": username, "password": password})
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+def headers_for(role):
+    return {"Authorization": f"Bearer {token_for(role)}"}
+
+
+def get_admin_token():
+    return token_for("admin")
+
+
+def test_health_check():
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+
+
+def test_register_and_login():
+    response = client.post("/auth/register", json={
+        "username": "regular_user",
+        "password": "somepassword"
+    })
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+
+
+def test_duplicate_registration_fails():
+    client.post("/auth/register", json={
+        "username": "dupe_user",
+        "password": "pass123"
+    })
+    response = client.post("/auth/register", json={
+        "username": "dupe_user",
+        "password": "pass123"
+    })
+    assert response.status_code == 409
+
+
+def test_create_employee_requires_admin():
+    # No token at all
+    response = client.post("/employees", json={
+        "Emp_ID": 1, "F_Name": "John", "L_Name": "Doe",
+        "Salary": 50000, "Dept_ID": 1, "Address": "123 Street"
+    })
+    assert response.status_code == 401
+
+
+def test_full_employee_lifecycle():
+    token = get_admin_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    dept_resp = client.post(
+        "/departments",
+        json={"Dept_Name": "Engineering", "Budget": 500000},
+        headers=headers
+    )
+    assert dept_resp.status_code == 200
+    dept_id = dept_resp.json()["Dept_ID"]
+
+    create_resp = client.post(
+        "/employees",
+        json={
+            "Emp_ID": 101, "F_Name": "Jane", "L_Name": "Smith",
+            "Salary": 75000, "Dept_ID": dept_id, "Address": "456 Avenue"
+        },
+        headers=headers
+    )
+    assert create_resp.status_code == 200
+
+    get_resp = client.get("/employees/101", headers=headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["F_Name"] == "Jane"
+
+    # Give a raise - should log to salary history
+    patch_resp = client.patch(
+        "/employees/101",
+        json={"Salary": 82000},
+        headers=headers
+    )
+    assert patch_resp.status_code == 200
+
+    history_resp = client.get("/employees/101/salary-history", headers=headers)
+    assert history_resp.status_code == 200
+    assert len(history_resp.json()) == 1
+    assert float(history_resp.json()[0]["old_salary"]) == 75000
+
+    # Soft delete
+    delete_resp = client.delete("/employees/101", headers=headers)
+    assert delete_resp.status_code == 200
+
+    list_resp = client.get("/employees", headers=headers)
+    assert all(e["Emp_ID"] != 101 for e in list_resp.json()["items"])
+
+    list_inactive_resp = client.get(
+        "/employees?include_inactive=true", headers=headers)
+    assert any(e["Emp_ID"] == 101 for e in list_inactive_resp.json()["items"])
+
+
+def test_dedicated_salary_endpoints():
+    token = get_admin_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    dept_resp = client.post(
+        "/departments",
+        json={"Dept_Name": "Marketing", "Budget": 100000},
+        headers=headers
+    )
+    dept_id = dept_resp.json()["Dept_ID"]
+
+    client.post(
+        "/employees",
+        json={
+            "Emp_ID": 202, "F_Name": "Alex", "L_Name": "Rao",
+            "Salary": 40000, "Dept_ID": dept_id, "Address": "789 Lane"
+        },
+        headers=headers
+    )
+
+    # Set an exact new salary
+    set_resp = client.put(
+        "/employees/202/salary",
+        json={"new_salary": 45000},
+        headers=headers
+    )
+    assert set_resp.status_code == 200
+    assert float(set_resp.json()["employee"]["Salary"]) == 45000
+
+    # Give a raise via increment
+    incr_resp = client.post(
+        "/employees/202/salary/increment",
+        json={"amount": 5000},
+        headers=headers
+    )
+    assert incr_resp.status_code == 200
+    assert float(incr_resp.json()["employee"]["Salary"]) == 50000
+
+    # A cut via negative increment
+    cut_resp = client.post(
+        "/employees/202/salary/increment",
+        json={"amount": -2000},
+        headers=headers
+    )
+    assert cut_resp.status_code == 200
+    assert float(cut_resp.json()["employee"]["Salary"]) == 48000
+
+    # History should have all 3 changes logged
+    history_resp = client.get("/employees/202/salary-history", headers=headers)
+    assert history_resp.status_code == 200
+    assert len(history_resp.json()) == 3
+
+
+def test_employee_email_auto_generated():
+    token = get_admin_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    dept_resp = client.post(
+        "/departments",
+        json={"Dept_Name": "Support", "Budget": 50000},
+        headers=headers
+    )
+    dept_id = dept_resp.json()["Dept_ID"]
+
+    resp1 = client.post(
+        "/employees",
+        json={
+            "Emp_ID": 301, "F_Name": "Sagar", "L_Name": "Pokhariyal",
+            "Salary": 40000, "Dept_ID": dept_id, "Address": "1 Road"
+        },
+        headers=headers
+    )
+    assert resp1.status_code == 200
+    assert resp1.json()["employee"]["Email"] == "sagar.p@laesfera.co"
+
+    # Same first name, same last-initial, DIFFERENT last name
+    # -> should extend the last-name prefix instead of a numeric suffix
+    resp2 = client.post(
+        "/employees",
+        json={
+            "Emp_ID": 302, "F_Name": "Sagar", "L_Name": "Patil",
+            "Salary": 42000, "Dept_ID": dept_id, "Address": "2 Road"
+        },
+        headers=headers
+    )
+    assert resp2.status_code == 200
+    assert resp2.json()["employee"]["Email"] == "sagar.pa@laesfera.co"
+
+
+def test_email_collision_extends_lastname_prefix():
+    token = get_admin_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    dept_resp = client.post(
+        "/departments",
+        json={"Dept_Name": "Ops", "Budget": 30000},
+        headers=headers
+    )
+    dept_id = dept_resp.json()["Dept_ID"]
+
+    def add(emp_id, f_name, l_name):
+        resp = client.post(
+            "/employees",
+            json={
+                "Emp_ID": emp_id, "F_Name": f_name, "L_Name": l_name,
+                "Salary": 30000, "Dept_ID": dept_id, "Address": "A"
+            },
+            headers=headers
+        )
+        assert resp.status_code == 200
+        return resp.json()["employee"]["Email"]
+
+    # "p" is free -> takes it
+    assert add(401, "Parth", "Patil") == "parth.p@laesfera.co"
+
+    # "p" taken -> a DIFFERENT last name extends to its own next letter, "pa"
+    assert add(402, "Parth", "Pandey") == "parth.pa@laesfera.co"
+
+    # Exact same name as 401: "p" and "pa" both taken -> extends to "pat"
+    assert add(403, "Parth", "Patil") == "parth.pat@laesfera.co"
+
+    # Exact same name again: "p", "pa", "pat" taken -> extends to "pati"
+    assert add(404, "Parth", "Patil") == "parth.pati@laesfera.co"
+
+    # Exact same name again: now the FULL last name "patil" is free -> uses it
+    assert add(405, "Parth", "Patil") == "parth.patil@laesfera.co"
+
+    # Exact same name a 5th time: every prefix (p, pa, pat, pati, patil)
+    # is now taken -> only now does it fall back to a number
+    assert add(406, "Parth", "Patil") == "parth.patil2@laesfera.co"
+
+
+def test_pagination_params_validated():
+    headers = headers_for("admin")
+
+    response = client.get("/employees?page=0", headers=headers)
+    assert response.status_code == 400
+
+    response = client.get("/employees?limit=500", headers=headers)
+    assert response.status_code == 400
+
+
+# =========================================================
+# ROLE-BASED ACCESS: user / manager / admin
+# =========================================================
+
+def _seed_role_test_data():
+    """Department + one employee (Emp_ID 501) created by an admin."""
+    admin = headers_for("admin")
+
+    dept = client.post(
+        "/departments",
+        json={"Dept_Name": "RoleTest", "Budget": 1000},
+        headers=admin
+    )
+    dept_id = dept.json()["Dept_ID"] if dept.status_code == 200 else \
+        next(d["Dept_ID"] for d in client.get("/departments", headers=admin).json()
+             if d["Dept_Name"] == "RoleTest")
+
+    client.post(
+        "/employees",
+        json={
+            "Emp_ID": 501, "F_Name": "Riya", "L_Name": "Shah",
+            "Salary": 60000, "Dept_ID": dept_id, "Address": "Secret Street 5"
+        },
+        headers=admin
+    )
+    return dept_id
+
+
+def test_anonymous_cannot_read_employees():
+    assert client.get("/employees").status_code == 401
+    assert client.get("/employees/501").status_code == 401
+    assert client.get("/departments").status_code == 401
+
+
+def test_self_registration_cannot_pick_a_role():
+    # Try to sneak in as admin - the role field must be ignored
+    resp = client.post("/auth/register", json={
+        "username": "sneaky", "password": "pass12345", "role": "admin"
+    })
+    assert resp.status_code == 200
+
+    users = client.get("/auth/users", headers=headers_for("admin")).json()
+    sneaky = next(u for u in users if u["username"] == "sneaky")
+    assert sneaky["role"] == "user"
+
+    # ...and the resulting token really has no admin powers
+    token = resp.json()["access_token"]
+    denied = client.post(
+        "/departments",
+        json={"Dept_Name": "Hacked", "Budget": 1},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert denied.status_code == 403
+
+
+def test_user_role_is_limited():
+    _seed_role_test_data()
+    user = headers_for("user")
+
+    # Can read the directory, but without salary / home address
+    one = client.get("/employees/501", headers=user)
+    assert one.status_code == 200
+    assert one.json()["F_Name"] == "Riya"
+    assert "Salary" not in one.json()
+    assert "Address" not in one.json()
+
+    listing = client.get("/employees", headers=user).json()["items"]
+    assert all("Salary" not in e and "Address" not in e for e in listing)
+
+    assert client.get("/departments", headers=user).status_code == 200
+
+    # Cannot write, see salary history, or manage users
+    new_emp = {
+        "Emp_ID": 599, "F_Name": "No", "L_Name": "Way",
+        "Salary": 1, "Dept_ID": 1, "Address": "x"
+    }
+    assert client.post("/employees", json=new_emp,
+                       headers=user).status_code == 403
+    assert client.patch(
+        "/employees/501", json={"Address": "y"}, headers=user).status_code == 403
+    assert client.delete("/employees/501", headers=user).status_code == 403
+    assert client.get("/employees/501/salary-history",
+                      headers=user).status_code == 403
+    assert client.get("/auth/users", headers=user).status_code == 403
+
+
+def test_manager_role_has_partial_access():
+    dept_id = _seed_role_test_data()
+    manager = headers_for("manager")
+
+    # Sees the full record, salary included
+    one = client.get("/employees/501", headers=manager).json()
+    assert float(one["Salary"]) == 60000
+    assert one["Address"] == "Secret Street 5"
+
+    # Can hire (create) and edit non-salary details
+    created = client.post(
+        "/employees",
+        json={
+            "Emp_ID": 502, "F_Name": "Kabir", "L_Name": "Nair",
+            "Salary": 50000, "Dept_ID": dept_id, "Address": "Hire Lane"
+        },
+        headers=manager
+    )
+    assert created.status_code == 200
+
+    patched = client.patch(
+        "/employees/502", json={"Address": "New Lane"}, headers=manager)
+    assert patched.status_code == 200
+
+    # Can view salary history
+    assert client.get("/employees/502/salary-history",
+                      headers=manager).status_code == 200
+
+    # Cannot change an existing salary - via PATCH, PUT, or the salary endpoints
+    assert client.patch(
+        "/employees/502", json={"Salary": 99999}, headers=manager).status_code == 403
+    assert client.put(
+        "/employees/502",
+        json={
+            "Emp_ID": 502, "F_Name": "Kabir", "L_Name": "Nair",
+            "Salary": 99999, "Dept_ID": dept_id, "Address": "New Lane"
+        },
+        headers=manager
+    ).status_code == 403
+    assert client.put("/employees/502/salary",
+                      json={"new_salary": 99999}, headers=manager).status_code == 403
+    assert client.post("/employees/502/salary/increment",
+                       json={"amount": 1}, headers=manager).status_code == 403
+
+    # Salary unchanged after all those rejected attempts
+    still = client.get("/employees/502", headers=manager).json()
+    assert float(still["Salary"]) == 50000
+
+    # Cannot delete/restore, create departments, or manage users
+    assert client.delete("/employees/502", headers=manager).status_code == 403
+    assert client.post("/employees/502/restore",
+                       headers=manager).status_code == 403
+    assert client.post(
+        "/departments", json={"Dept_Name": "Nope", "Budget": 1}, headers=manager).status_code == 403
+    assert client.get("/auth/users", headers=manager).status_code == 403
+
+
+def test_admin_can_manage_roles():
+    admin = headers_for("admin")
+
+    client.post("/auth/register",
+                json={"username": "promotee", "password": "pass12345"})
+
+    promote = client.put("/auth/users/promotee/role",
+                         json={"role": "manager"}, headers=admin)
+    assert promote.status_code == 200
+
+    users = client.get("/auth/users", headers=admin).json()
+    assert next(u for u in users if u["username"] == "promotee")[
+        "role"] == "manager"
+    # hashes never exposed
+    assert all("hashed_password" not in u for u in users)
+
+    # Invalid role, unknown user, and self-change are all rejected
+    assert client.put("/auth/users/promotee/role",
+                      json={"role": "superuser"}, headers=admin).status_code == 400
+    assert client.put("/auth/users/ghost/role",
+                      json={"role": "user"}, headers=admin).status_code == 404
+    assert client.put("/auth/users/admin_tester/role",
+                      json={"role": "user"}, headers=admin).status_code == 400
+
+
+def test_role_change_takes_effect_immediately():
+    admin = headers_for("admin")
+
+    resp = client.post(
+        "/auth/register", json={"username": "flipper", "password": "pass12345"})
+    flipper = {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+    assert client.get("/employees/501/salary-history",
+                      headers=flipper).status_code == 403
+
+    client.put("/auth/users/flipper/role",
+               json={"role": "manager"}, headers=admin)
+
+    # Same token as before - role is read from the DB, not baked into the JWT
+    assert client.get("/employees/501/salary-history",
+                      headers=flipper).status_code == 200
+
+
+def test_forgot_password_and_reset_flow():
+    # 1. Register a user with email
+    reg_resp = client.post("/auth/register", json={
+        "username": "pwd_reset_user",
+        "password": "originalpass123",
+        "email": "reset_user@example.com"
+    })
+    assert reg_resp.status_code == 200
+
+    # 2. Request forgot password using email
+    forgot_resp = client.post("/auth/forgot-password", json={
+        "identifier": "reset_user@example.com"
+    })
+    assert forgot_resp.status_code == 200
+    assert "password reset link has been sent" in forgot_resp.json()["message"]
+    token = forgot_resp.json().get("debug_token")
+    assert token is not None
+
+    # 3. Verify reset token endpoint
+    verify_resp = client.get(f"/auth/verify-reset-token?token={token}")
+    assert verify_resp.status_code == 200
+    assert verify_resp.json()["valid"] is True
+
+    # 4. Attempt reset with too short password
+    short_resp = client.post("/auth/reset-password", json={
+        "token": token,
+        "new_password": "123"
+    })
+    assert short_resp.status_code == 400
+
+    # 5. Successfully reset password
+    reset_resp = client.post("/auth/reset-password", json={
+        "token": token,
+        "new_password": "brandnewpassword123"
+    })
+    assert reset_resp.status_code == 200
+    assert "successfully" in reset_resp.json()["message"].lower()
+
+    # 6. Old password no longer works
+    old_login = client.post("/auth/login", data={
+        "username": "pwd_reset_user",
+        "password": "originalpass123"
+    })
+    assert old_login.status_code == 401
+
+    # 7. New password works
+    new_login = client.post("/auth/login", data={
+        "username": "pwd_reset_user",
+        "password": "brandnewpassword123"
+    })
+    assert new_login.status_code == 200
+    assert "access_token" in new_login.json()
+
+    # 8. Token cannot be reused
+    reused_resp = client.post("/auth/reset-password", json={
+        "token": token,
+        "new_password": "anotherpassword123"
+    })
+    assert reused_resp.status_code == 400
+
+
+def test_forgot_password_unknown_identifier_does_not_leak():
+    resp = client.post("/auth/forgot-password", json={
+        "identifier": "completely_unknown_user_99999"
+    })
+    assert resp.status_code == 200
+    assert "password reset link has been sent" in resp.json()["message"]
+    assert "debug_token" not in resp.json()
+
+
+def test_email_generation_with_duplicate_name_and_joining_date_suffix():
+    admin = headers_for("admin")
+
+    # Ensure test department exists
+    dept_resp = client.post(
+        "/departments",
+        json={"Dept_Name": "SuffixTestDept", "Budget": 100000},
+        headers=admin
+    )
+    dept_id = dept_resp.json(
+    )["Dept_ID"] if dept_resp.status_code == 200 else 1
+
+    # Employee 1: Johnathan Doe -> gets johnathan.d@laesfera.co
+    emp1 = client.post("/employees", json={
+        "Emp_ID": 701, "F_Name": "Johnathan", "L_Name": "Doe",
+        "Salary": 60000, "Dept_ID": dept_id, "Address": "Lane 1"
+    }, headers=admin)
+    assert emp1.status_code == 200
+    assert emp1.json()["employee"]["Email"] == "johnathan.d@laesfera.co"
+
+    # Employee 2: Same name (Johnathan Doe) joining in 2026 -> gets johnathan.doe2026@laesfera.co
+    emp2 = client.post("/employees", json={
+        "Emp_ID": 702, "F_Name": "Johnathan", "L_Name": "Doe",
+        "Salary": 65000, "Dept_ID": dept_id, "Address": "Lane 2",
+        "joining_date": "2026-04-15"
+    }, headers=admin)
+    assert emp2.status_code == 200
+    assert emp2.json()["employee"]["Email"] == "johnathan.doe2026@laesfera.co"
+
+    # Employee 3: Third Johnathan Doe joining in the same year 2026 -> gets johnathan.doe2026.2@laesfera.co
+    emp3 = client.post("/employees", json={
+        "Emp_ID": 703, "F_Name": "Johnathan", "L_Name": "Doe",
+        "Salary": 70000, "Dept_ID": dept_id, "Address": "Lane 3",
+        "joining_date": "2026-08-20"
+    }, headers=admin)
+    assert emp3.status_code == 200
+    assert emp3.json()[
+        "employee"]["Email"] == "johnathan.doe2026.2@laesfera.co"
+
+    # Employee 4: Fourth Johnathan Doe joining in 2027 -> gets johnathan.doe2027@laesfera.co
+    emp4 = client.post("/employees", json={
+        "Emp_ID": 704, "F_Name": "Johnathan", "L_Name": "Doe",
+        "Salary": 75000, "Dept_ID": dept_id, "Address": "Lane 4",
+        "joining_date": "2027-01-10"
+    }, headers=admin)
+    assert emp4.status_code == 200
+    assert emp4.json()["employee"]["Email"] == "johnathan.doe2027@laesfera.co"
+
+
+def test_download_employee_template():
+    """Verify authenticated user can download the employee CSV template."""
+    user_headers = headers_for("user")
+    res = client.get("/employees/template", headers=user_headers)
+    assert res.status_code == 200
+    assert "text/csv" in res.headers["content-type"]
+    assert "F_Name,L_Name,Salary,Department" in res.text
+
+
+def test_upload_employees_csv_admin_only():
+    """Verify only admin can upload employees sheet and user gets 403."""
+    user_headers = headers_for("user")
+    csv_content = b"Emp_ID,F_Name,L_Name,Salary,Department,Address\n801,Test,User,50000,Engineering,Test Address\n"
+
+    # User role should be forbidden
+    res = client.post(
+        "/employees/upload-excel",
+        files={"file": ("test_emp.csv", csv_content, "text/csv")},
+        headers=user_headers,
+    )
+    assert res.status_code == 403
+
+    # Admin role should succeed
+    admin_headers = headers_for("admin")
+    res_admin = client.post(
+        "/employees/upload-excel",
+        files={"file": ("test_emp.csv", csv_content, "text/csv")},
+        headers=admin_headers,
+    )
+    assert res_admin.status_code == 200
+    body = res_admin.json()
+    assert body["inserted"] == 1
+    assert body["total_rows"] == 1
+    assert body["employees"][0]["Emp_ID"] == 801
+    assert body["employees"][0]["Email"] == "test.u@laesfera.co"
+
+
+def test_bulk_delete_and_restore_employees():
+    """Verify bulk deactivation, restoration, and permanent deletion."""
+    admin = headers_for("admin")
+
+    # Deactivate 801
+    res_deact = client.post("/employees/bulk-deactivate",
+                            json=[801], headers=admin)
+    assert res_deact.status_code == 200
+    assert 801 in res_deact.json()["deactivated_ids"]
+
+    # Restore 801
+    res_rest = client.post("/employees/bulk-restore",
+                           json=[801], headers=admin)
+    assert res_rest.status_code == 200
+    assert 801 in res_rest.json()["restored_ids"]
+
+    # Bulk delete via JSON payload
+    res_del = client.post("/employees/bulk-delete",
+                          json={"emp_ids": [801], "hard_delete": True}, headers=admin)
+    assert res_del.status_code == 200
+    assert res_del.json()["affected_count"] == 1
+
+
+def test_bulk_delete_via_excel():
+    """Verify admin can bulk delete employees by uploading an Excel/CSV file."""
+    admin = headers_for("admin")
+    dept_id = client.get("/departments", headers=admin).json()[0]["Dept_ID"]
+    client.post("/employees", json={
+        "Emp_ID": 802, "F_Name": "ExcelDel", "L_Name": "Test",
+        "Salary": 50000, "Dept_ID": dept_id, "Address": "Street 1"
+    }, headers=admin)
+
+    # Upload CSV with Emp_ID 802 to delete
+    csv_data = b"Emp_ID\n802\n"
+    res = client.post(
+        "/employees/bulk-delete-excel?hard_delete=true",
+        files={"file": ("del.csv", csv_data, "text/csv")},
+        headers=admin
+    )
+    assert res.status_code == 200
+    assert res.json()["affected_count"] == 1
+
+    # Verify 802 is deleted
+    get_res = client.get("/employees/802", headers=admin)
+    assert get_res.status_code == 404
+
+
+def test_export_employees_csv():
+    """Verify CSV export works and applies role-based masking."""
+    user = headers_for("user")
+    res_user = client.get("/employees/export", headers=user)
+    assert res_user.status_code == 200
+    assert "Salary" not in res_user.text
+
+    admin = headers_for("admin")
+    res_admin = client.get("/employees/export", headers=admin)
+    assert res_admin.status_code == 200
+    assert "Salary" in res_admin.text
+
+
+def test_department_bulk_create_and_detail():
+    """Verify bulk department creation and detail analytics."""
+    admin = headers_for("admin")
+    bulk_res = client.post("/departments/bulk-create", json={
+        "departments": [
+            {"Dept_Name": "BulkDeptA", "Budget": 100000},
+            {"Dept_Name": "BulkDeptB", "Budget": 200000}
+        ]
+    }, headers=admin)
+    assert bulk_res.status_code == 200
+    assert len(bulk_res.json()["created"]) >= 1
+
+    dept_id = bulk_res.json()["created"][0]["Dept_ID"]
+    detail_res = client.get(f"/departments/{dept_id}", headers=admin)
+    assert detail_res.status_code == 200
+    assert "headcount" in detail_res.json()
+
+
+def test_bulk_salary_increment_and_summary():
+    """Verify bulk salary raises and payroll summary analytics."""
+    admin = headers_for("admin")
+    res_summary = client.get("/employees/salary/summary", headers=admin)
+    assert res_summary.status_code == 200
+    assert "total_payroll" in res_summary.json()
+
+    res_inc = client.post("/employees/salary/bulk-increment", json={
+        "percentage": 5.0
+    }, headers=admin)
+    assert res_inc.status_code == 200
+
