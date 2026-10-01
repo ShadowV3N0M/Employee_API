@@ -8,45 +8,95 @@ export default function Login() {
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
 
-  const [mode, setMode] = useState("login"); // "login" | "register" | "forgot"
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  // Flip State: false = Front (Sign in), true = Back (Register or Forgot Password)
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [backMode, setBackMode] = useState("register"); // "register" | "forgot"
+
+  // Front Form State (Login)
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
+
+  // Back Form State (Register / Forgot Password)
+  const [regUsername, setRegUsername] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [backError, setBackError] = useState("");
+  const [backNotice, setBackNotice] = useState("");
   const [debugUrl, setDebugUrl] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [backBusy, setBackBusy] = useState(false);
 
   if (user) return <Navigate to="/" replace />;
 
-  async function handleSubmit(e) {
+  async function handleLoginSubmit(e) {
     e.preventDefault();
-    setError("");
-    setNotice("");
-    setDebugUrl("");
-    setBusy(true);
+    setLoginError("");
+    setLoginBusy(true);
 
     try {
-      if (mode === "forgot") {
-        const res = await api.forgotPassword(username);
-        setNotice(res.message);
+      const { access_token } = await api.login(loginUsername, loginPassword);
+      await signIn(access_token);
+      navigate("/", { replace: true });
+    } catch (err) {
+      setLoginError(err.message);
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
+  async function handleBackSubmit(e) {
+    e.preventDefault();
+    setBackError("");
+    setBackNotice("");
+    setDebugUrl("");
+    setBackBusy(true);
+
+    try {
+      if (backMode === "forgot") {
+        const res = await api.forgotPassword(forgotUsername);
+        setBackNotice(res.message);
         if (res.debug_url) {
           setDebugUrl(res.debug_url);
         }
       } else {
-        const { access_token } =
-          mode === "login"
-            ? await api.login(username, password)
-            : await api.register(username, password, email);
-
+        const { access_token } = await api.register(regUsername, regPassword, regEmail);
         await signIn(access_token);
         navigate("/", { replace: true });
       }
     } catch (err) {
-      setError(err.message);
+      setBackError(err.message);
     } finally {
-      setBusy(false);
+      setBackBusy(false);
     }
+  }
+
+  function flipToRegister() {
+    setBackMode("register");
+    setBackError("");
+    setBackNotice("");
+    setDebugUrl("");
+    if (loginUsername && !regUsername) {
+      setRegUsername(loginUsername);
+    }
+    setIsFlipped(true);
+  }
+
+  function flipToForgot() {
+    setBackMode("forgot");
+    setBackError("");
+    setBackNotice("");
+    setDebugUrl("");
+    if (loginUsername && !forgotUsername) {
+      setForgotUsername(loginUsername);
+    }
+    setIsFlipped(true);
+  }
+
+  function flipToLogin() {
+    setLoginError("");
+    setIsFlipped(false);
   }
 
   return (
@@ -54,145 +104,228 @@ export default function Login() {
       <div style={{ position: "absolute", top: "20px", right: "20px" }}>
         <ThemeToggle />
       </div>
-      <form className="card login-card" onSubmit={handleSubmit}>
-        <h1>Employee Management</h1>
-        <p className="muted">
-          {mode === "login"
-            ? "Sign in to continue"
-            : mode === "register"
-              ? "Create an account"
-              : "Reset your password"}
-        </p>
 
-        {error && <div className="alert error">{error}</div>}
-        {notice && <div className="alert success">{notice}</div>}
-        {debugUrl && (
-          <div className="alert info" style={{ wordBreak: "break-all" }}>
-            <strong>Dev Reset Link:</strong><br />
-            <a href={debugUrl}>{debugUrl}</a>
-          </div>
-        )}
+      <div className="auth-flip-container">
+        <div className={`auth-flip-card ${isFlipped ? "is-flipped" : ""}`}>
+          
+          {/* ==================== FRONT FACE: Sign In ==================== */}
+          <form
+            className="card auth-card-face auth-card-front"
+            onSubmit={handleLoginSubmit}
+            aria-hidden={isFlipped}
+          >
+            <div className="auth-card-content">
+              <div>
+                <h1>Employee Management</h1>
+                <p className="muted">Sign in to continue</p>
+              </div>
 
-        <label>
-          {mode === "forgot" ? "Username or Email" : "Username"}
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            required
-            autoFocus
-          />
-        </label>
+              {loginError && <div className="alert error">{loginError}</div>}
 
-        {mode === "register" && (
-          <label>
-            Email (optional)
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
-            />
-          </label>
-        )}
+              <label>
+                Username
+                <input
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  autoComplete="username"
+                  required
+                  disabled={isFlipped}
+                  tabIndex={isFlipped ? -1 : 0}
+                  autoFocus={!isFlipped}
+                />
+              </label>
 
-        {mode !== "forgot" && (
-          <label>
-            Password
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              required
-            />
-          </label>
-        )}
+              <label>
+                Password
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                  disabled={isFlipped}
+                  tabIndex={isFlipped ? -1 : 0}
+                />
+              </label>
 
-        <button className="btn primary block" disabled={busy}>
-          {busy
-            ? "Please wait…"
-            : mode === "login"
-              ? "Sign in"
-              : mode === "register"
-                ? "Register"
-                : "Send Reset Link"}
-        </button>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="link"
+                  disabled={isFlipped}
+                  tabIndex={isFlipped ? -1 : 0}
+                  onClick={flipToForgot}
+                >
+                  Forgot password?
+                </button>
+              </div>
 
-        {mode === "login" && (
-          <p className="small right" style={{ marginTop: "8px" }}>
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                setMode("forgot");
-                setError("");
-                setNotice("");
-                setDebugUrl("");
-              }}
-            >
-              Forgot password?
-            </button>
-          </p>
-        )}
-
-        {mode === "register" && (
-          <p className="muted small">
-            New accounts start as plain users. An admin can promote you to
-            manager or admin.
-          </p>
-        )}
-
-        <p className="muted small center">
-          {mode === "login" && (
-            <>
-              No account yet?{" "}
               <button
-                type="button"
-                className="link"
-                onClick={() => {
-                  setMode("register");
-                  setError("");
-                  setNotice("");
-                }}
+                type="submit"
+                className="btn primary block"
+                disabled={loginBusy || isFlipped}
+                tabIndex={isFlipped ? -1 : 0}
               >
-                Register
+                {loginBusy ? "Please wait…" : "Sign in"}
               </button>
-            </>
-          )}
+            </div>
 
-          {mode === "register" && (
-            <>
-              Already registered?{" "}
-              <button
-                type="button"
-                className="link"
-                onClick={() => {
-                  setMode("login");
-                  setError("");
-                  setNotice("");
-                }}
-              >
-                Sign in
-              </button>
-            </>
-          )}
+            <div className="auth-card-footer">
+              <p className="muted small">
+                No account yet?{" "}
+                <button
+                  type="button"
+                  className="flip-toggle-btn"
+                  disabled={isFlipped}
+                  tabIndex={isFlipped ? -1 : 0}
+                  onClick={flipToRegister}
+                >
+                  <span>Create Account</span>
+                  <span className="flip-icon" aria-hidden="true">↻</span>
+                </button>
+              </p>
+            </div>
+          </form>
 
-          {mode === "forgot" && (
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                setMode("login");
-                setError("");
-                setNotice("");
-              }}
-            >
-              ← Back to Sign in
-            </button>
-          )}
-        </p>
-      </form>
+          {/* ==================== BACK FACE: Register / Forgot Password ==================== */}
+          <form
+            className="card auth-card-face auth-card-back"
+            onSubmit={handleBackSubmit}
+            aria-hidden={!isFlipped}
+          >
+            <div className="auth-card-content">
+              <div>
+                <h1>Employee Management</h1>
+                <p className="muted">
+                  {backMode === "register" ? "Create your account" : "Reset your password"}
+                </p>
+              </div>
+
+              {backError && <div className="alert error">{backError}</div>}
+              {backNotice && <div className="alert success">{backNotice}</div>}
+              {debugUrl && (
+                <div className="alert info" style={{ wordBreak: "break-all" }}>
+                  <strong>Dev Reset Link:</strong><br />
+                  <a href={debugUrl}>{debugUrl}</a>
+                </div>
+              )}
+
+              {backMode === "register" ? (
+                <>
+                  <label>
+                    Username
+                    <input
+                      value={regUsername}
+                      onChange={(e) => setRegUsername(e.target.value)}
+                      autoComplete="username"
+                      required
+                      disabled={!isFlipped}
+                      tabIndex={!isFlipped ? -1 : 0}
+                    />
+                  </label>
+
+                  <label>
+                    Email (optional)
+                    <input
+                      type="email"
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      placeholder="user@example.com"
+                      disabled={!isFlipped}
+                      tabIndex={!isFlipped ? -1 : 0}
+                    />
+                  </label>
+
+                  <label>
+                    Password
+                    <input
+                      type="password"
+                      value={regPassword}
+                      onChange={(e) => setRegPassword(e.target.value)}
+                      autoComplete="new-password"
+                      required
+                      disabled={!isFlipped}
+                      tabIndex={!isFlipped ? -1 : 0}
+                    />
+                  </label>
+
+                  <button
+                    type="submit"
+                    className="btn primary block"
+                    disabled={backBusy || !isFlipped}
+                    tabIndex={!isFlipped ? -1 : 0}
+                  >
+                    {backBusy ? "Please wait…" : "Register"}
+                  </button>
+
+                  <p className="muted small">
+                    New accounts start as plain users. An admin can promote you to manager or admin.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <label>
+                    Username or Email
+                    <input
+                      value={forgotUsername}
+                      onChange={(e) => setForgotUsername(e.target.value)}
+                      autoComplete="username"
+                      required
+                      disabled={!isFlipped}
+                      tabIndex={!isFlipped ? -1 : 0}
+                    />
+                  </label>
+
+                  <button
+                    type="submit"
+                    className="btn primary block"
+                    disabled={backBusy || !isFlipped}
+                    tabIndex={!isFlipped ? -1 : 0}
+                  >
+                    {backBusy ? "Please wait…" : "Send Reset Link"}
+                  </button>
+
+                  <p className="muted small">
+                    Enter your username or registered email address and we'll send password reset instructions.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="auth-card-footer">
+              <p className="muted small">
+                {backMode === "register" ? (
+                  <>
+                    Already registered?{" "}
+                    <button
+                      type="button"
+                      className="flip-toggle-btn"
+                      disabled={!isFlipped}
+                      tabIndex={!isFlipped ? -1 : 0}
+                      onClick={flipToLogin}
+                    >
+                      <span>Sign in</span>
+                      <span className="flip-icon" aria-hidden="true">↺</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="flip-toggle-btn"
+                    disabled={!isFlipped}
+                    tabIndex={!isFlipped ? -1 : 0}
+                    onClick={flipToLogin}
+                  >
+                    <span className="flip-icon" aria-hidden="true">←</span>
+                    <span>Back to Sign in</span>
+                  </button>
+                )}
+              </p>
+            </div>
+          </form>
+
+        </div>
+      </div>
     </div>
   );
 }

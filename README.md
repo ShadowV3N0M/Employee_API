@@ -703,10 +703,18 @@ git reset --soft HEAD~1
   - Deactivate/Activate account status toggling.
   - Permanent delete action with confirmation dialog.
 
-### 9. Dark / Light Theme System & Theme Selector
+### 9. Dark / Light Theme System & Animated Celestial Switch
 - **Custom Properties Architecture:** Added full set of CSS variables (`--bg`, `--surface`, `--surface-alt`, `--border`, `--text`, `--muted`, `--primary`, `--danger`, `--ok`, `--input-bg`, `--th-bg`, `--row-hover`, `--shadow`) supporting high-contrast Dark and crisp Light modes.
+- **Interactive Celestial Toggle Switch (`ThemeToggle.jsx`):** Custom pill slider switch with spring physics, rotating golden sun with ray bursts in daylight mode, and glowing crescent moon with twinkling sky stars in nighttime mode.
+- **Dynamic Page Layout Ripple (View Transitions API):** Seamless hardware-accelerated circular wave transition radiating outwards from the button's exact click coordinates using `document.startViewTransition` and `clip-path: circle()`.
+- **Universal Coordinated Fallback:** Progressive enhancement for non-supporting browsers with a 550ms `.theme-transitioning` overlay and synchronized custom property transitions.
 - **Dynamic Theme Context:** React `ThemeProvider` with auto system detection (`prefers-color-scheme: dark`), local storage persistence, and immediate HTML attribute synchronization (`data-theme="dark"`).
-- **Universal Toggle:** Integrated `ThemeToggle` component across top navigation bar and pre-login screen.
+
+### 10. 3D Card Flip Transition Animation (`Login.jsx`, `styles.css`)
+- **Interactive 3D Flipping:** Implemented a two-sided authentication card with realistic perspective depth (`perspective: 1200px`, `transform-style: preserve-3d`, `rotateY(180deg)`).
+- **Fluid Mode Transitions:** Form container dynamically rotates between **Sign In** (Front Face), **Account Registration** (Back Face), and **Password Reset** without jarring reloads.
+- **Accessibility Safeguards:** Inputs on the unfocused face are disabled and removed from the keyboard tab sequence (`tabIndex={-1}`) to prevent ghost navigation.
+- **Reduced Motion Support:** Gracefully reverts to instant mode switching when `prefers-reduced-motion: reduce` is detected.
 
 ## Roadmap & Features Status
 
@@ -718,6 +726,7 @@ git reset --soft HEAD~1
 - [x] **Interactive Role-Based Employee Detail Popup Modal** - Row-click modal and role-masked single profile API (`GET /employees/{emp_id}`)
 - [x] **Full Admin User CRUD & Account Deletion** - Direct user creation, role assignment, status toggling, and permanent account deletion (`DELETE /auth/users/{username}`)
 - [x] **Dark / Light Theme Toggle** - Theme selector using CSS custom properties, persistent state & system media query
+- [x] **3D Card Flip Animation** - Interactive 3D perspective flip transition between Sign In and Registration forms with accessibility controls
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 

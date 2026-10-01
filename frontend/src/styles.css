@@ -126,7 +126,76 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.45;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* ---------- View Transitions & Layout Theme Animation ---------- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 99999;
+}
+
+/* Coordinated theme transition fallback */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+              fill 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-delay: 0s !important;
+}
+
+/* Ambient layout light sweep overlay during theme transition */
+html.theme-transitioning::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999999;
+  background: radial-gradient(
+    circle at var(--theme-click-x, 85%) var(--theme-click-y, 25px),
+    rgba(245, 159, 0, 0.22) 0%,
+    rgba(255, 255, 255, 0.05) 35%,
+    transparent 70%
+  );
+  animation: theme-ripple-wave 0.52s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+[data-theme="dark"].theme-transitioning::after {
+  background: radial-gradient(
+    circle at var(--theme-click-x, 85%) var(--theme-click-y, 25px),
+    rgba(76, 110, 245, 0.25) 0%,
+    rgba(15, 23, 42, 0.1) 40%,
+    transparent 70%
+  );
+}
+
+@keyframes theme-ripple-wave {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
 }
 
 h1, h2, h3, h4 { margin: 0 0 4px; color: var(--text-heading); }
@@ -270,11 +339,406 @@ input:focus, select:focus { outline: 2px solid var(--focus-ring); border-color: 
 }
 .modal-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
 
-/* ---------- login ---------- */
-.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; position: relative; }
-.login-card { width: 100%; max-width: 380px; padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+/* ---------- login & 3D flip card ---------- */
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  position: relative;
+}
+
+.auth-flip-container {
+  width: 100%;
+  max-width: 420px;
+  perspective: 1200px;
+  margin: 0 auto;
+}
+
+.auth-flip-card {
+  position: relative;
+  width: 100%;
+  min-height: 570px;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.auth-flip-card.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.auth-card-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 570px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 30px 28px;
+  border-radius: var(--radius);
+  box-sizing: border-box;
+}
+
+.auth-card-face h1 {
+  font-size: 1.4rem;
+  margin-bottom: 2px;
+}
+
+.auth-card-face p {
+  margin: 0;
+}
+
+.auth-card-front {
+  transform: rotateY(0deg);
+  z-index: 2;
+}
+
+.auth-card-back {
+  transform: rotateY(180deg);
+  z-index: 1;
+}
+
+/* Ensure only active face is interactable and accessible */
+.auth-flip-card:not(.is-flipped) .auth-card-back {
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s 0.32s;
+}
+
+.auth-flip-card.is-flipped .auth-card-front {
+  pointer-events: none;
+  visibility: hidden;
+  transition: visibility 0s 0.32s;
+}
+
+.auth-flip-card:not(.is-flipped) .auth-card-front {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.auth-flip-card.is-flipped .auth-card-back {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.auth-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-card-footer {
+  margin-top: 14px;
+  text-align: center;
+}
+
+.flip-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  transition: color 0.15s ease;
+}
+
+.flip-toggle-btn:hover {
+  text-decoration: underline;
+}
+
+.flip-icon {
+  display: inline-block;
+  font-size: 1.05rem;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.flip-toggle-btn:hover .flip-icon {
+  transform: rotate(180deg);
+}
+
+/* Fallback legacy login-card */
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 .login-card h1 { font-size: 1.4rem; }
 .login-card p { margin: 0; }
+
+/* ---------- Animated Celestial Theme Toggle Switch ---------- */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  cursor: pointer;
+  user-select: none;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-toggle-btn:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .theme-toggle-btn:hover {
+  box-shadow: 0 3px 10px rgba(245, 159, 0, 0.25);
+}
+
+[data-theme="dark"] .theme-toggle-btn:hover {
+  box-shadow: 0 3px 12px rgba(76, 110, 245, 0.35);
+}
+
+.theme-toggle-btn:active {
+  transform: scale(0.95);
+}
+
+/* Track */
+.theme-toggle-track {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.4s ease, border-color 0.4s ease;
+  flex-shrink: 0;
+}
+
+[data-theme="light"] .theme-toggle-track {
+  background: linear-gradient(135deg, #fef08a 0%, #fde047 100%);
+  border: 1px solid #facc15;
+}
+
+[data-theme="dark"] .theme-toggle-track {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border: 1px solid #334155;
+}
+
+/* Celestial sky stars inside track */
+.theme-sky-star {
+  position: absolute;
+  color: #f8fafc;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+[data-theme="dark"] .theme-sky-star {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.theme-sky-star.star-1 {
+  top: 3px;
+  left: 6px;
+  font-size: 8px;
+  color: #ffd43b;
+  animation: star-twinkle 2.5s ease-in-out infinite;
+}
+
+.theme-sky-star.star-2 {
+  bottom: 4px;
+  left: 12px;
+  font-size: 7px;
+  color: #91a7ff;
+  animation: star-twinkle 3.2s ease-in-out 0.8s infinite;
+}
+
+.theme-sky-star.star-3 {
+  top: 7px;
+  left: 18px;
+  font-size: 6px;
+  color: #ffffff;
+  animation: star-twinkle 2s ease-in-out 1.5s infinite;
+}
+
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.theme-sky-cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s ease, transform 0.4s ease;
+}
+
+[data-theme="dark"] .theme-sky-cloud {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.theme-sky-cloud.cloud-1 {
+  width: 14px;
+  height: 6px;
+  right: 5px;
+  bottom: 4px;
+}
+
+.theme-sky-cloud.cloud-2 {
+  width: 9px;
+  height: 5px;
+  right: 12px;
+  bottom: 8px;
+}
+
+/* Sliding Thumb */
+.theme-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background-color 0.3s ease,
+              box-shadow 0.3s ease;
+  z-index: 2;
+}
+
+.theme-toggle-thumb.is-light {
+  transform: translateX(0);
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.35);
+}
+
+.theme-toggle-thumb.is-dark {
+  transform: translateX(24px);
+  background: #1e293b;
+  box-shadow: 0 0 8px rgba(147, 197, 253, 0.5);
+  border: 1px solid #475569;
+}
+
+/* Thumb Icons */
+.theme-icon {
+  width: 13px;
+  height: 13px;
+  display: block;
+}
+
+.theme-icon-sun {
+  animation: sun-pulse 8s linear infinite;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.theme-toggle-btn:hover .theme-icon-sun {
+  transform: rotate(45deg) scale(1.15);
+}
+
+@keyframes sun-pulse {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.theme-icon-moon {
+  color: #cbd5e1;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.theme-toggle-btn:hover .theme-icon-moon {
+  transform: rotate(-20deg) scale(1.15);
+  color: #e2e8f0;
+}
+
+/* Label text */
+.theme-toggle-label {
+  display: inline-block;
+  min-width: 36px;
+  text-align: left;
+  line-height: 1;
+}
+
+.theme-label-text {
+  display: inline-block;
+  animation: theme-text-slide-in 0.28s cubic-bezier(0, 0, 0.2, 1);
+}
+
+@keyframes theme-text-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Accessibility: respect user prefers-reduced-motion setting */
+@media (prefers-reduced-motion: reduce) {
+  .auth-flip-card {
+    transition: none !important;
+  }
+  .auth-flip-card.is-flipped {
+    transform: none !important;
+  }
+  .auth-card-face {
+    backface-visibility: visible !important;
+    -webkit-backface-visibility: visible !important;
+    position: relative !important;
+  }
+  .auth-flip-card:not(.is-flipped) .auth-card-back {
+    display: none !important;
+  }
+  .auth-flip-card.is-flipped .auth-card-front {
+    display: none !important;
+  }
+  .auth-flip-card.is-flipped .auth-card-back {
+    transform: none !important;
+    display: flex !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+  html.theme-transitioning::after {
+    animation: none !important;
+    display: none !important;
+  }
+  .theme-toggle-thumb {
+    transition: none !important;
+  }
+  .theme-icon-sun {
+    animation: none !important;
+  }
+  .theme-sky-star {
+    animation: none !important;
+  }
+  .theme-label-text {
+    animation: none !important;
+  }
+}
 
 @media (max-width: 640px) {
   .form-grid { grid-template-columns: 1fr; }
