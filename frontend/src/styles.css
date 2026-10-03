@@ -695,8 +695,388 @@ input:focus, select:focus { outline: 2px solid var(--focus-ring); border-color: 
   }
 }
 
+/* ---------- Theme Mascots (Rooster & Owl Waking Up) ---------- */
+.theme-mascot-stage {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  z-index: 999999;
+  pointer-events: none;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  animation: mascot-stage-entrance 2.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes mascot-stage-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(100px) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(60px) scale(0.85);
+  }
+}
+
+.theme-mascot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.mascot-actor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.mascot-speech-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--surface);
+  color: var(--text-heading);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  font-size: 0.84rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+  animation: bubble-bounce 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.mascot-speech-bubble .bubble-emoji {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+@keyframes bubble-bounce {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.8);
+  }
+}
+
+.mascot-svg {
+  width: 150px;
+  height: 130px;
+  overflow: visible;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.2));
+}
+
+/* ================== Rooster Animations ================== */
+.rooster-sunrise-glow {
+  animation: rooster-glow 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes rooster-glow {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  100% { transform: scale(1.15); opacity: 1; }
+}
+
+.rooster-head-group {
+  transform-origin: 84px 70px;
+  animation: rooster-crow-action 2.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes rooster-crow-action {
+  0% {
+    transform: rotate(10deg);
+  }
+  20% {
+    /* Sleepy wake up tilt */
+    transform: rotate(-5deg);
+  }
+  35% {
+    /* Pull back neck to prepare crow */
+    transform: rotate(-18deg) translateY(-2px);
+  }
+  50%, 75% {
+    /* Crowing out loud */
+    transform: rotate(15deg) translateY(-4px);
+  }
+  90%, 100% {
+    /* Settle back down */
+    transform: rotate(0deg);
+  }
+}
+
+.rooster-beak-lower {
+  transform-origin: 106px 41px;
+  animation: beak-drop 2.6s ease forwards;
+}
+
+@keyframes beak-drop {
+  0%, 35% { transform: rotate(0deg); }
+  50%, 75% { transform: rotate(32deg); }
+  90%, 100% { transform: rotate(0deg); }
+}
+
+.rooster-comb {
+  transform-origin: 100px 30px;
+  animation: comb-jiggle 2.6s ease forwards;
+}
+
+@keyframes comb-jiggle {
+  0%, 35% { transform: rotate(0deg); }
+  45% { transform: rotate(-10deg); }
+  55% { transform: rotate(12deg); }
+  65% { transform: rotate(-8deg); }
+  75% { transform: rotate(6deg); }
+  90%, 100% { transform: rotate(0deg); }
+}
+
+.rooster-wing {
+  transform-origin: 70px 80px;
+  animation: wing-flap 2.6s ease forwards;
+}
+
+@keyframes wing-flap {
+  0%, 40% { transform: rotate(0deg); }
+  50% { transform: rotate(-25deg) scaleX(1.1); }
+  60% { transform: rotate(-5deg); }
+  70% { transform: rotate(-25deg) scaleX(1.1); }
+  85%, 100% { transform: rotate(0deg); }
+}
+
+.rooster-tail {
+  transform-origin: 66px 80px;
+  animation: tail-bob 2.6s ease forwards;
+}
+
+@keyframes tail-bob {
+  0%, 30% { transform: rotate(0deg); }
+  45% { transform: rotate(-14deg); }
+  60% { transform: rotate(8deg); }
+  75% { transform: rotate(-10deg); }
+  90%, 100% { transform: rotate(0deg); }
+}
+
+.crow-note {
+  font-weight: 700;
+  opacity: 0;
+}
+
+.crow-note-1 {
+  fill: #fab005;
+  font-size: 16px;
+  animation: note-float 1.8s ease-out 0.8s forwards;
+}
+
+.crow-note-2 {
+  fill: #fd7e14;
+  font-size: 14px;
+  animation: note-float 1.8s ease-out 1.05s forwards;
+}
+
+.crow-note-3 {
+  fill: #f59f00;
+  font-size: 18px;
+  animation: note-float 1.8s ease-out 1.3s forwards;
+}
+
+@keyframes note-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.5);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(8px, -14px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(22px, -36px) scale(1.3);
+  }
+}
+
+/* ================== Owl Animations ================== */
+.owl-moon-glow {
+  animation: owl-glow-pulse 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes owl-glow-pulse {
+  0% { transform: scale(0.9); opacity: 0.5; }
+  100% { transform: scale(1.15); opacity: 0.9; }
+}
+
+.owl-head-group {
+  transform-origin: 80px 48px;
+  animation: owl-head-movement 2.6s ease-in-out forwards;
+}
+
+@keyframes owl-head-movement {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    /* Curious head tilt to the left */
+    transform: rotate(-12deg);
+  }
+  50% {
+    /* Curious head tilt to the right */
+    transform: rotate(10deg);
+  }
+  75% {
+    /* Straighten up happily */
+    transform: rotate(-4deg);
+  }
+  90%, 100% {
+    transform: rotate(0deg);
+  }
+}
+
+.owl-eyelid-path {
+  transform-origin: 80px 46px;
+  animation: owl-open-eyes 2.6s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+@keyframes owl-open-eyes {
+  0%, 15% {
+    /* Eyes closed / sleeping */
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  30% {
+    /* First sleepy blink */
+    transform: scaleY(0.2);
+    opacity: 0.4;
+  }
+  38% {
+    /* Brief shut */
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  50%, 100% {
+    /* Wide awake glowing eyes! */
+    transform: scaleY(0);
+    opacity: 0;
+  }
+}
+
+.owl-iris {
+  animation: owl-iris-glow 2.6s ease forwards;
+}
+
+@keyframes owl-iris-glow {
+  0%, 45% {
+    filter: none;
+  }
+  55%, 100% {
+    filter: drop-shadow(0 0 5px #fab005);
+  }
+}
+
+.owl-pupil {
+  transform-origin: 80px 46px;
+  animation: pupil-dilate 2.6s ease forwards;
+}
+
+@keyframes pupil-dilate {
+  0%, 45% { transform: scale(0.8); }
+  55% { transform: scale(1.15); }
+  75%, 100% { transform: scale(1); }
+}
+
+.owl-tuft-left {
+  transform-origin: 64px 40px;
+  animation: tuft-perk-l 2.6s ease forwards;
+}
+
+.owl-tuft-right {
+  transform-origin: 96px 40px;
+  animation: tuft-perk-r 2.6s ease forwards;
+}
+
+@keyframes tuft-perk-l {
+  0%, 35% { transform: rotate(0deg); }
+  50% { transform: rotate(-14deg); }
+  75%, 100% { transform: rotate(-8deg); }
+}
+
+@keyframes tuft-perk-r {
+  0%, 35% { transform: rotate(0deg); }
+  50% { transform: rotate(14deg); }
+  75%, 100% { transform: rotate(8deg); }
+}
+
+.owl-wing-left {
+  transform-origin: 58px 64px;
+  animation: owl-wing-l 2.6s ease forwards;
+}
+
+.owl-wing-right {
+  transform-origin: 102px 64px;
+  animation: owl-wing-r 2.6s ease forwards;
+}
+
+@keyframes owl-wing-l {
+  0%, 45% { transform: rotate(0deg); }
+  60% { transform: rotate(-12deg); }
+  85%, 100% { transform: rotate(0deg); }
+}
+
+@keyframes owl-wing-r {
+  0%, 45% { transform: rotate(0deg); }
+  60% { transform: rotate(12deg); }
+  85%, 100% { transform: rotate(0deg); }
+}
+
+.owl-star {
+  font-weight: 700;
+  animation: star-sparkle 1.8s ease-in-out infinite alternate;
+}
+
+.owl-star-1 {
+  fill: #a5b4fc;
+  font-size: 15px;
+}
+
+.owl-star-2 {
+  fill: #ffd43b;
+  font-size: 17px;
+  animation-delay: 0.4s;
+}
+
+.owl-star-3 {
+  fill: #91a7ff;
+  font-size: 13px;
+  animation-delay: 0.8s;
+}
+
+@keyframes star-sparkle {
+  0% { transform: scale(0.7) rotate(0deg); opacity: 0.4; }
+  100% { transform: scale(1.25) rotate(15deg); opacity: 1; }
+}
+
 /* Accessibility: respect user prefers-reduced-motion setting */
 @media (prefers-reduced-motion: reduce) {
+  .theme-mascot-stage {
+    display: none !important;
+  }
   .auth-flip-card {
     transition: none !important;
   }

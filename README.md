@@ -716,6 +716,11 @@ git reset --soft HEAD~1
 - **Accessibility Safeguards:** Inputs on the unfocused face are disabled and removed from the keyboard tab sequence (`tabIndex={-1}`) to prevent ghost navigation.
 - **Reduced Motion Support:** Gracefully reverts to instant mode switching when `prefers-reduced-motion: reduce` is detected.
 
+### 11. Rooster & Owl Waking-Up Mascot Animations (`ThemeMascot.jsx`, `styles.css`)
+- **Rooster Waking Up (Light Mode):** Animated rooster rises at sunrise with morning glow, neck stretching, comb jiggle, wing flutters, floating crowing notes, and *"Rise & Shine! ☀️"* bubble.
+- **Owl Waking Up (Dark Mode):** Animated nocturnal owl perched on a tree branch wakes with sleepy blinks, dilating glowing irises, perked ear tufts, inquisitive head-tilt, sparkling stars, and *"Night Owl Mode! 🌙"* badge.
+- **Floating Stage:** Positioned in bottom-right corner with `pointer-events: none` and 2.8s auto-dismiss.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -726,6 +731,7 @@ git reset --soft HEAD~1
 - [x] **Interactive Role-Based Employee Detail Popup Modal** - Row-click modal and role-masked single profile API (`GET /employees/{emp_id}`)
 - [x] **Full Admin User CRUD & Account Deletion** - Direct user creation, role assignment, status toggling, and permanent account deletion (`DELETE /auth/users/{username}`)
 - [x] **Dark / Light Theme Toggle** - Theme selector using CSS custom properties, persistent state & system media query
+- [x] **Rooster & Owl Waking-Up Mascots** - Animated sunrise rooster (light) and twilight owl (dark) with interactive stage choreography
 - [x] **3D Card Flip Animation** - Interactive 3D perspective flip transition between Sign In and Registration forms with accessibility controls
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows

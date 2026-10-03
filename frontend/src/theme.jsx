@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import ThemeMascot from "./components/ThemeMascot";
 
 const ThemeContext = createContext({
   theme: "light",
@@ -19,6 +20,9 @@ export function ThemeProvider({ children }) {
     }
     return "light";
   });
+
+  // Mascot animation state: null | "rooster" (light) | "owl" (dark)
+  const [mascot, setMascot] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -47,6 +51,11 @@ export function ThemeProvider({ children }) {
     }
 
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Trigger rooster for daylight and owl for darkness
+    if (!prefersReducedMotion) {
+      setMascot(nextTheme === "dark" ? "owl" : "rooster");
+    }
 
     // Calculate origin coordinates from the click event or toggle button
     let x = window.innerWidth / 2;
@@ -135,6 +144,7 @@ export function ThemeProvider({ children }) {
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
+      <ThemeMascot active={mascot} onComplete={() => setMascot(null)} />
     </ThemeContext.Provider>
   );
 }
