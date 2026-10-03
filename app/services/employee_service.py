@@ -4,8 +4,13 @@ from app.models.employee import EmployeeDB
 SORTABLE_FIELDS = {
     "Emp_ID": EmployeeDB.Emp_ID,
     "F_Name": EmployeeDB.F_Name,
+    "L_Name": EmployeeDB.L_Name,
     "Salary": EmployeeDB.Salary,
     "Dept_ID": EmployeeDB.Dept_ID,
+    "Email": EmployeeDB.Email,
+    "joining_date": EmployeeDB.joining_date,
+    "is_active": EmployeeDB.is_active,
+    "created_at": EmployeeDB.created_at,
 }
 
 

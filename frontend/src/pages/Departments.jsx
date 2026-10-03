@@ -4,6 +4,7 @@ import { useAuth } from "../auth";
 import { formatMoney } from "../format";
 import DepartmentEditModal from "../components/DepartmentEditModal";
 import DepartmentHistoryModal from "../components/DepartmentHistoryModal";
+import SortByDropdown from "../components/SortByDropdown";
 
 export default function Departments() {
   const { user } = useAuth();
@@ -25,7 +26,11 @@ export default function Departments() {
   const [showGlobalHistory, setShowGlobalHistory] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  // Filtration state
+  // Filtration and sorting state
+  const [sortBy, setSortBy] = useState("Dept_ID");
+  const [order, setOrder] = useState("asc");
+  const [showFilters, setShowFilters] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [minBudget, setMinBudget] = useState("");
@@ -45,6 +50,8 @@ export default function Departments() {
       search: debouncedSearch.trim() || undefined,
       min_budget: minBudget !== "" ? Number(minBudget) : undefined,
       max_budget: maxBudget !== "" ? Number(maxBudget) : undefined,
+      sort_by: sortBy,
+      order,
     };
 
     return api
@@ -56,7 +63,32 @@ export default function Departments() {
 
   useEffect(() => {
     load();
-  }, [debouncedSearch, minBudget, maxBudget]);
+  }, [debouncedSearch, minBudget, maxBudget, sortBy, order]);
+
+  function toggleSort(field) {
+    if (sortBy === field) {
+      setOrder(order === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setOrder("asc");
+    }
+  }
+
+  const arrow = (field) =>
+    sortBy === field ? (
+      <span className="sort-indicator">{order === "asc" ? " ▲" : " ▼"}</span>
+    ) : (
+      <span className="sort-indicator muted" style={{ opacity: 0.35 }}>
+        {" "}
+        ⇅
+      </span>
+    );
+
+  const sortOptions = [
+    { value: "Dept_ID", label: "Department ID" },
+    { value: "Dept_Name", label: "Department Name" },
+    { value: "Budget", label: "Allocated Budget" },
+  ];
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -125,6 +157,31 @@ export default function Departments() {
         </div>
 
         <div className="toolbar">
+          <button
+            type="button"
+            className={`btn ${showFilters ? "primary" : "ghost"} filter-toggle-btn`}
+            onClick={() => setShowFilters((prev) => !prev)}
+            title={showFilters ? "Hide filtration bar" : "Show filtration bar"}
+          >
+            ⚡ Filter By
+            {activeFilterCount > 0 && (
+              <span className="filter-badge-active">{activeFilterCount}</span>
+            )}
+            <span style={{ fontSize: "0.7rem", marginLeft: "4px" }}>
+              {showFilters ? "▲" : "▼"}
+            </span>
+          </button>
+
+          <SortByDropdown
+            options={sortOptions}
+            sortBy={sortBy}
+            order={order}
+            onChange={(field, newOrder) => {
+              setSortBy(field);
+              setOrder(newOrder);
+            }}
+          />
+
           {isAdmin && (
             <button
               type="button"
@@ -175,119 +232,127 @@ export default function Departments() {
       )}
 
       {/* Multi-field Department Filter Bar */}
-      <div className="filter-card">
-        <div className="filter-bar">
-          <div className="filter-group lg">
-            <span className="filter-label">🔍 Search</span>
-            <input
-              type="search"
-              className="filter-input"
-              placeholder="Search by name or Dept ID…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="filter-group sm">
-            <span className="filter-label">💰 Min Budget</span>
-            <input
-              type="number"
-              min="0"
-              step="1000"
-              className="filter-input"
-              placeholder="Min $"
-              value={minBudget}
-              onChange={(e) => setMinBudget(e.target.value)}
-            />
-          </div>
-
-          <div className="filter-group sm">
-            <span className="filter-label">💰 Max Budget</span>
-            <input
-              type="number"
-              min="0"
-              step="1000"
-              className="filter-input"
-              placeholder="Max $"
-              value={maxBudget}
-              onChange={(e) => setMaxBudget(e.target.value)}
-            />
-          </div>
-
-          <div className="filter-actions">
-            <button
-              type="button"
-              className="filter-clear-btn"
-              onClick={clearFilters}
-              disabled={activeFilterCount === 0}
-              title="Reset all filters"
-            >
-              ✕ Reset Filters
-              {activeFilterCount > 0 && (
-                <span className="filter-badge-active">{activeFilterCount}</span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {activeFilterCount > 0 && (
-          <div className="filter-summary">
-            <div className="filter-chips">
-              <span className="small muted">Active filters:</span>
-              {searchTerm.trim() && (
-                <span className="filter-chip">
-                  Search: "{searchTerm.trim()}"
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove search filter"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setDebouncedSearch("");
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {minBudget !== "" && (
-                <span className="filter-chip">
-                  Min Budget: ${Number(minBudget).toLocaleString()}
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove min budget filter"
-                    onClick={() => setMinBudget("")}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {maxBudget !== "" && (
-                <span className="filter-chip">
-                  Max Budget: ${Number(maxBudget).toLocaleString()}
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove max budget filter"
-                    onClick={() => setMaxBudget("")}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
+      {showFilters && (
+        <div className="filter-card">
+          <div className="filter-bar">
+            <div className="filter-group lg">
+              <span className="filter-label">🔍 Search</span>
+              <input
+                type="search"
+                className="filter-input"
+                placeholder="Search by name or Dept ID…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <span className="small muted">
-              Showing {departments.length} matching departments
-            </span>
+
+            <div className="filter-group sm">
+              <span className="filter-label">💰 Min Budget</span>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                className="filter-input"
+                placeholder="Min $"
+                value={minBudget}
+                onChange={(e) => setMinBudget(e.target.value)}
+              />
+            </div>
+
+            <div className="filter-group sm">
+              <span className="filter-label">💰 Max Budget</span>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                className="filter-input"
+                placeholder="Max $"
+                value={maxBudget}
+                onChange={(e) => setMaxBudget(e.target.value)}
+              />
+            </div>
+
+            <div className="filter-actions">
+              <button
+                type="button"
+                className="filter-clear-btn"
+                onClick={clearFilters}
+                disabled={activeFilterCount === 0}
+                title="Reset all filters"
+              >
+                ✕ Reset Filters
+                {activeFilterCount > 0 && (
+                  <span className="filter-badge-active">{activeFilterCount}</span>
+                )}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+
+          {activeFilterCount > 0 && (
+            <div className="filter-summary">
+              <div className="filter-chips">
+                <span className="small muted">Active filters:</span>
+                {searchTerm.trim() && (
+                  <span className="filter-chip">
+                    Search: "{searchTerm.trim()}"
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove search filter"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setDebouncedSearch("");
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {minBudget !== "" && (
+                  <span className="filter-chip">
+                    Min Budget: ${Number(minBudget).toLocaleString()}
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove min budget filter"
+                      onClick={() => setMinBudget("")}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {maxBudget !== "" && (
+                  <span className="filter-chip">
+                    Max Budget: ${Number(maxBudget).toLocaleString()}
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove max budget filter"
+                      onClick={() => setMaxBudget("")}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </div>
+              <span className="small muted">
+                Showing {departments.length} matching departments
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card table-wrap">
         <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th className="num">Budget</th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("Dept_ID")}>
+                <div className="th-content">ID{arrow("Dept_ID")}</div>
+              </th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("Dept_Name")}>
+                <div className="th-content">Name{arrow("Dept_Name")}</div>
+              </th>
+              <th className="sortable sortable-th num" onClick={() => toggleSort("Budget")}>
+                <div className="th-content" style={{ justifyContent: "flex-end" }}>Budget{arrow("Budget")}</div>
+              </th>
               {isAdmin && <th className="right">Actions</th>}
             </tr>
           </thead>

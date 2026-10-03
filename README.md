@@ -812,7 +812,15 @@ git reset --soft HEAD~1
     - **Account Status (`is_active`):** Directly toggleable between Active and Inactive / Deactivated from the edit form.
 - **Role-Based Privilege Enforcement:**
   - Non-admin managers can only edit First Name, Last Name, Department, and Address. Any attempt by non-admins to alter Salary, Email, Joining Date, or Status is rejected by the backend with `HTTP 403 Forbidden`.
-  - Frontend displays administrative badge and full edit controls for admins, while rendering protected fields as informative read-only previews for managers.
+### 17. Universal Sort By & Filter By Engine Across All Pages (`SortByDropdown.jsx`, Backend Endpoints)
+- **Backend Query Sorting Enhancements:**
+  - `GET /employees`: Supports `sort_by` (`Emp_ID`, `F_Name`, `L_Name`, `Dept_ID`, `Salary`, `Email`, `joining_date`, `is_active`, `created_at`) and `order` (`asc` / `desc`).
+  - `GET /departments`: Supports `sort_by` (`Dept_ID`, `Dept_Name`, `Budget`) and `order` (`asc` / `desc`).
+  - `GET /auth/users`: Supports `sort_by` (`id`, `username`, `email`, `role`, `is_active`) and `order` (`asc` / `desc`).
+- **Frontend Universal Controls (`SortByDropdown.jsx`):**
+  - Standardized `⇅ Sort by: [Field] [▲/▼]` popover menu across all pages with active checkmarks and direction toggles (`▲ Asc (A-Z)` / `▼ Desc (Z-A)`).
+  - Synchronized with clickable table headers (`.sortable-th`) showing directional arrows.
+  - Interactive `⚡ Filter By` toggle button with dynamic active count pills (`⚡ Filter By (2)`), instant filtration, and quick resets across Employees, Departments, Users, Analytics, and Salary Calculator roster.
 
 ## Roadmap & Features Status
 
@@ -833,6 +841,7 @@ git reset --soft HEAD~1
 - [x] **Admin Department Management & Budget Revision History** - Department name & budget allocation editing, automated revision audit trail, and safe deletion with employee assignment protection
 - [x] **Interactive Salary & Take-Home Pay Calculator** - Dual tax regime comparison (New vs. Old), statutory deductions (EPF, PT, ESI), "Load My Salary" profile integration, and printable payslip simulation preview
 - [x] **Full Admin Access to Edit All Employee Details** - Admin can modify First/Last Name, Department, Residential Address, Salary (with audit history), Official Email (with uniqueness check), Joining Date (with schema migration), and Account Status (active/inactive)
+- [x] **Universal Sort By & Filter By Engine Across Every Page & Modal** - Dedicated Sort By dropdown popover with direction toggles, clickable table headers, and Filter By button with active count pills across Employees, Departments, Users, Analytics, and Salary Calculator roster
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 

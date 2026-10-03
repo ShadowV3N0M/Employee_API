@@ -3,6 +3,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 import { formatMoney } from "../format";
 import Modal from "../components/Modal";
+import SortByDropdown from "../components/SortByDropdown";
 
 // Pre-defined quick presets (in Lakhs per Annum)
 const SALARY_PRESETS = [
@@ -47,6 +48,9 @@ export default function SalaryCalculator() {
   const [empSearch, setEmpSearch] = useState("");
   const [empDeptFilter, setEmpDeptFilter] = useState("");
   const [empStatusFilter, setEmpStatusFilter] = useState("all"); // "all" | "active" | "inactive"
+  const [modalSortBy, setModalSortBy] = useState("Emp_ID");
+  const [modalOrder, setModalOrder] = useState("asc");
+  const [showModalFilters, setShowModalFilters] = useState(true);
   const [modalPage, setModalPage] = useState(1);
   const [modalPageSize, setModalPageSize] = useState(25); // 25, 50, 100, 250, "all"
   const [salaryActionMsg, setSalaryActionMsg] = useState("");
@@ -98,14 +102,49 @@ export default function SalaryCalculator() {
     return map;
   }, [departmentsList]);
 
-  // Reset modal pagination to page 1 whenever filters change
+  // Reset modal pagination to page 1 whenever filters or sorting change
   useEffect(() => {
     setModalPage(1);
+  }, [empSearch, empDeptFilter, empStatusFilter, modalSortBy, modalOrder]);
+
+  const modalSortOptions = [
+    { value: "Emp_ID", label: "Employee ID" },
+    { value: "F_Name", label: "Employee Name" },
+    { value: "Dept_ID", label: "Department" },
+    { value: "Salary", label: "Registered CTC / Salary" },
+    { value: "is_active", label: "Account Status" },
+  ];
+
+  function toggleModalSort(field) {
+    if (modalSortBy === field) {
+      setModalOrder(modalOrder === "asc" ? "desc" : "asc");
+    } else {
+      setModalSortBy(field);
+      setModalOrder("asc");
+    }
+  }
+
+  const modalArrow = (field) =>
+    modalSortBy === field ? (
+      <span className="sort-indicator">{modalOrder === "asc" ? " ▲" : " ▼"}</span>
+    ) : (
+      <span className="sort-indicator muted" style={{ opacity: 0.35 }}>
+        {" "}
+        ⇅
+      </span>
+    );
+
+  const modalActiveFilterCount = useMemo(() => {
+    let count = 0;
+    if (empSearch.trim()) count++;
+    if (empDeptFilter) count++;
+    if (empStatusFilter !== "all") count++;
+    return count;
   }, [empSearch, empDeptFilter, empStatusFilter]);
 
-  // Filtered employee list for admin picker modal across all N records
+  // Filtered and sorted employee list for admin picker modal across all N records
   const filteredEmployees = useMemo(() => {
-    return employeesList.filter((emp) => {
+    let list = employeesList.filter((emp) => {
       if (empDeptFilter && emp.Dept_ID !== Number(empDeptFilter)) {
         return false;
       }
@@ -122,7 +161,25 @@ export default function SalaryCalculator() {
       }
       return true;
     });
-  }, [employeesList, empDeptFilter, empStatusFilter, empSearch]);
+
+    list.sort((a, b) => {
+      let va = a[modalSortBy];
+      let vb = b[modalSortBy];
+      if (modalSortBy === "F_Name") {
+        va = `${a.F_Name || ""} ${a.L_Name || ""}`.trim().toLowerCase();
+        vb = `${b.F_Name || ""} ${b.L_Name || ""}`.trim().toLowerCase();
+      }
+      if (va == null) va = modalOrder === "asc" ? Infinity : -Infinity;
+      if (vb == null) vb = modalOrder === "asc" ? Infinity : -Infinity;
+      if (typeof va === "string") {
+        const cmp = va.localeCompare(String(vb));
+        return modalOrder === "asc" ? cmp : -cmp;
+      }
+      return modalOrder === "asc" ? va - vb : vb - va;
+    });
+
+    return list;
+  }, [employeesList, empDeptFilter, empStatusFilter, empSearch, modalSortBy, modalOrder]);
 
   const totalFiltered = filteredEmployees.length;
   const totalPages =
@@ -1218,60 +1275,109 @@ export default function SalaryCalculator() {
               Access and search across all {employeesList.length.toLocaleString()} employee records in the company. Select any employee to load their registered compensation, model take-home pay, or simulate appraisal raises.
             </p>
 
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-              <input
-                type="search"
-                placeholder="🔍 Search by name, ID, or email..."
-                value={empSearch}
-                onChange={(e) => setEmpSearch(e.target.value)}
-                style={{ flex: "1 1 200px" }}
-                autoFocus
-              />
-              <select
-                value={empDeptFilter}
-                onChange={(e) => setEmpDeptFilter(e.target.value)}
-                style={{ flex: "0 1 180px" }}
-              >
-                <option value="">All Departments ({departmentsList.length})</option>
-                {departmentsList.map((d) => (
-                  <option key={d.Dept_ID} value={d.Dept_ID}>
-                    {d.Dept_Name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={empStatusFilter}
-                onChange={(e) => setEmpStatusFilter(e.target.value)}
-                style={{ flex: "0 1 140px" }}
-              >
-                <option value="all">All Statuses</option>
-                <option value="active">Active Only</option>
-                <option value="inactive">Inactive Only</option>
-              </select>
-              <button
-                type="button"
-                className="btn ghost small"
-                onClick={fetchEmployeesRoster}
-                disabled={loadingEmployees}
-                title="Re-fetch all employee records from database"
-              >
-                {loadingEmployees ? "⏳ Refreshing…" : "🔄 Refresh"}
-              </button>
-              {(empSearch || empDeptFilter || empStatusFilter !== "all") && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className={`btn ${showModalFilters ? "primary" : "ghost"} small filter-toggle-btn`}
+                  onClick={() => setShowModalFilters((prev) => !prev)}
+                  title={showModalFilters ? "Hide filter bar" : "Show filter bar"}
+                >
+                  ⚡ Filter By
+                  {modalActiveFilterCount > 0 && (
+                    <span className="filter-badge-active">{modalActiveFilterCount}</span>
+                  )}
+                  <span style={{ fontSize: "0.7rem", marginLeft: "4px" }}>
+                    {showModalFilters ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                <SortByDropdown
+                  options={modalSortOptions}
+                  sortBy={modalSortBy}
+                  order={modalOrder}
+                  onChange={(field, newOrder) => {
+                    setModalSortBy(field);
+                    setModalOrder(newOrder);
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <button
                   type="button"
                   className="btn ghost small"
-                  onClick={() => {
-                    setEmpSearch("");
-                    setEmpDeptFilter("");
-                    setEmpStatusFilter("all");
-                  }}
-                  title="Clear all filters"
+                  onClick={fetchEmployeesRoster}
+                  disabled={loadingEmployees}
+                  title="Re-fetch all employee records from database"
                 >
-                  ✕ Clear
+                  {loadingEmployees ? "⏳ Refreshing…" : "🔄 Refresh"}
                 </button>
-              )}
+              </div>
             </div>
+
+            {showModalFilters && (
+              <div className="filter-card" style={{ margin: 0, padding: "10px 14px" }}>
+                <div className="filter-bar" style={{ gap: "10px", flexWrap: "wrap" }}>
+                  <div className="filter-group lg" style={{ flex: "1 1 200px" }}>
+                    <span className="filter-label">🔍 Search</span>
+                    <input
+                      type="search"
+                      className="filter-input"
+                      placeholder="Search by name, ID, or email..."
+                      value={empSearch}
+                      onChange={(e) => setEmpSearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+
+                  <div className="filter-group" style={{ flex: "0 1 180px" }}>
+                    <span className="filter-label">🏢 Department</span>
+                    <select
+                      className="filter-select"
+                      value={empDeptFilter}
+                      onChange={(e) => setEmpDeptFilter(e.target.value)}
+                    >
+                      <option value="">All Departments ({departmentsList.length})</option>
+                      {departmentsList.map((d) => (
+                        <option key={d.Dept_ID} value={d.Dept_ID}>
+                          {d.Dept_Name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="filter-group" style={{ flex: "0 1 140px" }}>
+                    <span className="filter-label">⚡ Status</span>
+                    <select
+                      className="filter-select"
+                      value={empStatusFilter}
+                      onChange={(e) => setEmpStatusFilter(e.target.value)}
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="active">Active Only</option>
+                      <option value="inactive">Inactive Only</option>
+                    </select>
+                  </div>
+
+                  <div className="filter-actions">
+                    <button
+                      type="button"
+                      className="filter-clear-btn"
+                      onClick={() => {
+                        setEmpSearch("");
+                        setEmpDeptFilter("");
+                        setEmpStatusFilter("all");
+                      }}
+                      disabled={modalActiveFilterCount === 0}
+                      title="Clear all filters"
+                    >
+                      ✕ Reset
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div
               style={{
@@ -1293,11 +1399,21 @@ export default function SalaryCalculator() {
                 <table style={{ margin: 0, width: "100%" }}>
                   <thead>
                     <tr>
-                      <th>ID</th>
-                      <th>Employee</th>
-                      <th>Department</th>
-                      <th className="num">Registered CTC</th>
-                      <th>Status</th>
+                      <th className="sortable sortable-th" onClick={() => toggleModalSort("Emp_ID")}>
+                        <div className="th-content">ID{modalArrow("Emp_ID")}</div>
+                      </th>
+                      <th className="sortable sortable-th" onClick={() => toggleModalSort("F_Name")}>
+                        <div className="th-content">Employee{modalArrow("F_Name")}</div>
+                      </th>
+                      <th className="sortable sortable-th" onClick={() => toggleModalSort("Dept_ID")}>
+                        <div className="th-content">Department{modalArrow("Dept_ID")}</div>
+                      </th>
+                      <th className="sortable sortable-th num" onClick={() => toggleModalSort("Salary")}>
+                        <div className="th-content" style={{ justifyContent: "flex-end" }}>Registered CTC{modalArrow("Salary")}</div>
+                      </th>
+                      <th className="sortable sortable-th" onClick={() => toggleModalSort("is_active")}>
+                        <div className="th-content">Status{modalArrow("is_active")}</div>
+                      </th>
                       <th className="right">Action</th>
                     </tr>
                   </thead>

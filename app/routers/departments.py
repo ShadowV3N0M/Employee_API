@@ -116,15 +116,24 @@ def bulk_create_departments(
             status_code=500, detail=f"Database error: {str(e)}")
 
 
+DEPT_SORTABLE = {
+    "Dept_ID": DepartmentDB.Dept_ID,
+    "Dept_Name": DepartmentDB.Dept_Name,
+    "Budget": DepartmentDB.Budget,
+}
+
+
 @router.get("")
 def list_departments(
     search: Optional[str] = None,
     min_budget: Optional[float] = None,
     max_budget: Optional[float] = None,
+    sort_by: str = "Dept_ID",
+    order: str = "asc",
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user)
 ):
-    """Any authenticated user. Retrieve company departments with optional filtering."""
+    """Any authenticated user. Retrieve company departments with optional filtering and sorting."""
     try:
         query = db.query(DepartmentDB)
 
@@ -141,7 +150,10 @@ def list_departments(
         if max_budget is not None:
             query = query.filter(DepartmentDB.Budget <= max_budget)
 
-        return query.order_by(DepartmentDB.Dept_ID.asc()).all()
+        col = DEPT_SORTABLE.get(sort_by, DepartmentDB.Dept_ID)
+        query = query.order_by(col.desc() if order == "desc" else col.asc())
+
+        return query.all()
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=500, detail=f"Database error: {str(e)}")

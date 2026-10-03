@@ -7,6 +7,7 @@ import EmployeeForm from "../components/EmployeeForm";
 import ExcelImportModal from "../components/ExcelImportModal";
 import HistoryModal from "../components/HistoryModal";
 import SalaryModal from "../components/SalaryModal";
+import SortByDropdown from "../components/SortByDropdown";
 
 const PAGE_SIZE = 10;
 
@@ -20,6 +21,7 @@ export default function Employees() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("Emp_ID");
   const [order, setOrder] = useState("asc");
+  const [showFilters, setShowFilters] = useState(true);
 
   // Multi-field filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -110,7 +112,15 @@ export default function Employees() {
     setPage(1);
   }
 
-  const arrow = (field) => (sortBy === field ? (order === "asc" ? " ▲" : " ▼") : "");
+  const arrow = (field) =>
+    sortBy === field ? (
+      <span className="sort-indicator">{order === "asc" ? " ▲" : " ▼"}</span>
+    ) : (
+      <span className="sort-indicator muted" style={{ opacity: 0.35 }}>
+        {" "}
+        ⇅
+      </span>
+    );
 
   async function toggleActive(emp) {
     const verb = emp.is_active ? "deactivate" : "restore";
@@ -168,6 +178,22 @@ export default function Employees() {
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
   const columnCount = privileged ? 8 : 6;
 
+  const sortOptions = useMemo(() => {
+    const opts = [
+      { value: "Emp_ID", label: "Employee ID" },
+      { value: "F_Name", label: "First Name" },
+      { value: "L_Name", label: "Last Name" },
+      { value: "Dept_ID", label: "Department" },
+      { value: "Email", label: "Official Email" },
+      { value: "joining_date", label: "Joining Date" },
+      { value: "is_active", label: "Account Status" },
+    ];
+    if (privileged) {
+      opts.splice(4, 0, { value: "Salary", label: "Salary" });
+    }
+    return opts;
+  }, [privileged]);
+
   return (
     <>
       <div className="page-head">
@@ -183,14 +209,40 @@ export default function Employees() {
         </div>
 
         <div className="toolbar">
+          <button
+            type="button"
+            className={`btn ${showFilters ? "primary" : "ghost"} filter-toggle-btn`}
+            onClick={() => setShowFilters((prev) => !prev)}
+            title={showFilters ? "Hide filtration bar" : "Show filtration bar"}
+          >
+            ⚡ Filter By
+            {activeFilterCount > 0 && (
+              <span className="filter-badge-active">{activeFilterCount}</span>
+            )}
+            <span style={{ fontSize: "0.7rem", marginLeft: "4px" }}>
+              {showFilters ? "▲" : "▼"}
+            </span>
+          </button>
+
+          <SortByDropdown
+            options={sortOptions}
+            sortBy={sortBy}
+            order={order}
+            onChange={(field, newOrder) => {
+              setSortBy(field);
+              setOrder(newOrder);
+              setPage(1);
+            }}
+          />
+
           {privileged && (
-            <button className="btn primary" onClick={() => setModal({ type: "form", employee: null })}>
+            <button className="btn secondary" onClick={() => setModal({ type: "form", employee: null })}>
               + Add employee
             </button>
           )}
           {isAdmin && (
             <button className="btn secondary" onClick={() => setModal({ type: "excel" })}>
-              📊 Excel Hub (Import/Delete)
+              📊 Excel Hub
             </button>
           )}
           <a
@@ -224,199 +276,213 @@ export default function Employees() {
       {error && <div className="alert error">{error}</div>}
 
       {/* Multi-field Table Filter Bar */}
-      <div className="filter-card">
-        <div className="filter-bar">
-          <div className="filter-group lg">
-            <span className="filter-label">🔍 Search</span>
-            <input
-              type="search"
-              className="filter-input"
-              placeholder="Search by name, email, or ID…"
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
+      {showFilters && (
+        <div className="filter-card">
+          <div className="filter-bar">
+            <div className="filter-group lg">
+              <span className="filter-label">🔍 Search</span>
+              <input
+                type="search"
+                className="filter-input"
+                placeholder="Search by name, email, or ID…"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
 
-          <div className="filter-group">
-            <span className="filter-label">🏢 Department</span>
-            <select
-              className="filter-select"
-              value={selectedDept}
-              onChange={(e) => {
-                setSelectedDept(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">All Departments</option>
-              {departments.map((d) => (
-                <option key={d.Dept_ID} value={d.Dept_ID}>
-                  {d.Dept_Name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {privileged && (
             <div className="filter-group">
-              <span className="filter-label">⚡ Status</span>
+              <span className="filter-label">🏢 Department</span>
               <select
                 className="filter-select"
-                value={statusFilter}
+                value={selectedDept}
                 onChange={(e) => {
-                  setStatusFilter(e.target.value);
+                  setSelectedDept(e.target.value);
                   setPage(1);
                 }}
               >
-                <option value="active">Active Only</option>
-                <option value="inactive">Inactive Only</option>
-                <option value="all">All (Active & Inactive)</option>
+                <option value="">All Departments</option>
+                {departments.map((d) => (
+                  <option key={d.Dept_ID} value={d.Dept_ID}>
+                    {d.Dept_Name}
+                  </option>
+                ))}
               </select>
             </div>
-          )}
 
-          {privileged && (
-            <div className="filter-group sm">
-              <span className="filter-label">💵 Min Salary</span>
-              <input
-                type="number"
-                min="0"
-                step="1000"
-                className="filter-input"
-                placeholder="Min $"
-                value={minSalary}
-                onChange={(e) => {
-                  setMinSalary(e.target.value);
-                  setPage(1);
-                }}
-              />
+            {privileged && (
+              <div className="filter-group">
+                <span className="filter-label">⚡ Status</span>
+                <select
+                  className="filter-select"
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
+                  <option value="all">All (Active & Inactive)</option>
+                </select>
+              </div>
+            )}
+
+            {privileged && (
+              <div className="filter-group sm">
+                <span className="filter-label">💵 Min Salary</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  className="filter-input"
+                  placeholder="Min $"
+                  value={minSalary}
+                  onChange={(e) => {
+                    setMinSalary(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+            )}
+
+            {privileged && (
+              <div className="filter-group sm">
+                <span className="filter-label">💵 Max Salary</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  className="filter-input"
+                  placeholder="Max $"
+                  value={maxSalary}
+                  onChange={(e) => {
+                    setMaxSalary(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="filter-actions">
+              <button
+                type="button"
+                className="filter-clear-btn"
+                onClick={clearFilters}
+                disabled={activeFilterCount === 0}
+                title="Reset all filters"
+              >
+                ✕ Reset Filters
+                {activeFilterCount > 0 && (
+                  <span className="filter-badge-active">{activeFilterCount}</span>
+                )}
+              </button>
             </div>
-          )}
-
-          {privileged && (
-            <div className="filter-group sm">
-              <span className="filter-label">💵 Max Salary</span>
-              <input
-                type="number"
-                min="0"
-                step="1000"
-                className="filter-input"
-                placeholder="Max $"
-                value={maxSalary}
-                onChange={(e) => {
-                  setMaxSalary(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-          )}
-
-          <div className="filter-actions">
-            <button
-              type="button"
-              className="filter-clear-btn"
-              onClick={clearFilters}
-              disabled={activeFilterCount === 0}
-              title="Reset all filters"
-            >
-              ✕ Reset Filters
-              {activeFilterCount > 0 && (
-                <span className="filter-badge-active">{activeFilterCount}</span>
-              )}
-            </button>
           </div>
+
+          {activeFilterCount > 0 && (
+            <div className="filter-summary">
+              <div className="filter-chips">
+                <span className="small muted">Active filters:</span>
+                {searchTerm.trim() && (
+                  <span className="filter-chip">
+                    Search: "{searchTerm.trim()}"
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove search filter"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setDebouncedSearch("");
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {selectedDept && (
+                  <span className="filter-chip">
+                    Dept: {deptName[selectedDept] || selectedDept}
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove department filter"
+                      onClick={() => setSelectedDept("")}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {privileged && statusFilter !== "active" && (
+                  <span className="filter-chip">
+                    Status: {statusFilter === "all" ? "All" : "Inactive Only"}
+                    <button
+                      className="filter-chip-remove"
+                      title="Reset to Active Only"
+                      onClick={() => setStatusFilter("active")}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {privileged && minSalary !== "" && (
+                  <span className="filter-chip">
+                    Min: ${Number(minSalary).toLocaleString()}
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove minimum salary filter"
+                      onClick={() => setMinSalary("")}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {privileged && maxSalary !== "" && (
+                  <span className="filter-chip">
+                    Max: ${Number(maxSalary).toLocaleString()}
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove maximum salary filter"
+                      onClick={() => setMaxSalary("")}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </div>
+              <span className="small muted">
+                Showing {data.items.length} of {data.total} matching records
+              </span>
+            </div>
+          )}
         </div>
-
-        {activeFilterCount > 0 && (
-          <div className="filter-summary">
-            <div className="filter-chips">
-              <span className="small muted">Active filters:</span>
-              {searchTerm.trim() && (
-                <span className="filter-chip">
-                  Search: "{searchTerm.trim()}"
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove search filter"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setDebouncedSearch("");
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {selectedDept && (
-                <span className="filter-chip">
-                  Dept: {deptName[selectedDept] || selectedDept}
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove department filter"
-                    onClick={() => setSelectedDept("")}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {privileged && statusFilter !== "active" && (
-                <span className="filter-chip">
-                  Status: {statusFilter === "all" ? "All" : "Inactive Only"}
-                  <button
-                    className="filter-chip-remove"
-                    title="Reset to Active Only"
-                    onClick={() => setStatusFilter("active")}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {privileged && minSalary !== "" && (
-                <span className="filter-chip">
-                  Min: ${Number(minSalary).toLocaleString()}
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove minimum salary filter"
-                    onClick={() => setMinSalary("")}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {privileged && maxSalary !== "" && (
-                <span className="filter-chip">
-                  Max: ${Number(maxSalary).toLocaleString()}
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove maximum salary filter"
-                    onClick={() => setMaxSalary("")}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-            </div>
-            <span className="small muted">
-              Showing {data.items.length} of {data.total} matching records
-            </span>
-          </div>
-        )}
-      </div>
+      )}
 
       <div className="card table-wrap">
         <table>
           <thead>
             <tr>
-              <th className="sortable" onClick={() => toggleSort("Emp_ID")}>ID{arrow("Emp_ID")}</th>
-              <th className="sortable" onClick={() => toggleSort("F_Name")}>Name{arrow("F_Name")}</th>
-              <th>Email</th>
-              <th className="sortable" onClick={() => toggleSort("Dept_ID")}>Department{arrow("Dept_ID")}</th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("Emp_ID")}>
+                <div className="th-content">ID{arrow("Emp_ID")}</div>
+              </th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("F_Name")}>
+                <div className="th-content">Name{arrow("F_Name")}</div>
+              </th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("Email")}>
+                <div className="th-content">Email{arrow("Email")}</div>
+              </th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("Dept_ID")}>
+                <div className="th-content">Department{arrow("Dept_ID")}</div>
+              </th>
               {privileged && (
-                <th className="sortable num" onClick={() => toggleSort("Salary")}>Salary{arrow("Salary")}</th>
+                <th className="sortable sortable-th num" onClick={() => toggleSort("Salary")}>
+                  <div className="th-content" style={{ justifyContent: "flex-end" }}>Salary{arrow("Salary")}</div>
+                </th>
               )}
               {privileged && <th>Address</th>}
-              <th>Status</th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("is_active")}>
+                <div className="th-content">Status{arrow("is_active")}</div>
+              </th>
               <th className="right">Actions</th>
             </tr>
           </thead>

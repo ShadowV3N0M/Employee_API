@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import Modal from "../components/Modal";
+import SortByDropdown from "../components/SortByDropdown";
 
 const ROLES = ["user", "manager", "admin"];
 
@@ -14,7 +15,11 @@ export default function Users() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
-  // Filtration state
+  // Filtration & sorting state
+  const [sortBy, setSortBy] = useState("id");
+  const [order, setOrder] = useState("asc");
+  const [showFilters, setShowFilters] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -46,6 +51,8 @@ export default function Users() {
       role: roleFilter !== "all" ? roleFilter : undefined,
       is_active:
         statusFilter === "active" ? true : statusFilter === "inactive" ? false : undefined,
+      sort_by: sortBy,
+      order,
     };
 
     return api
@@ -57,7 +64,34 @@ export default function Users() {
 
   useEffect(() => {
     load();
-  }, [debouncedSearch, roleFilter, statusFilter]);
+  }, [debouncedSearch, roleFilter, statusFilter, sortBy, order]);
+
+  function toggleSort(field) {
+    if (sortBy === field) {
+      setOrder(order === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setOrder("asc");
+    }
+  }
+
+  const arrow = (field) =>
+    sortBy === field ? (
+      <span className="sort-indicator">{order === "asc" ? " ▲" : " ▼"}</span>
+    ) : (
+      <span className="sort-indicator muted" style={{ opacity: 0.35 }}>
+        {" "}
+        ⇅
+      </span>
+    );
+
+  const sortOptions = [
+    { value: "id", label: "User ID" },
+    { value: "username", label: "Username" },
+    { value: "email", label: "Official Email" },
+    { value: "role", label: "Assigned Role" },
+    { value: "is_active", label: "Account Status" },
+  ];
 
   async function changeRole(username, role) {
     setError("");
@@ -171,6 +205,31 @@ export default function Users() {
         </div>
 
         <div className="toolbar">
+          <button
+            type="button"
+            className={`btn ${showFilters ? "primary" : "ghost"} filter-toggle-btn`}
+            onClick={() => setShowFilters((prev) => !prev)}
+            title={showFilters ? "Hide filtration bar" : "Show filtration bar"}
+          >
+            ⚡ Filter By
+            {activeFilterCount > 0 && (
+              <span className="filter-badge-active">{activeFilterCount}</span>
+            )}
+            <span style={{ fontSize: "0.7rem", marginLeft: "4px" }}>
+              {showFilters ? "▲" : "▼"}
+            </span>
+          </button>
+
+          <SortByDropdown
+            options={sortOptions}
+            sortBy={sortBy}
+            order={order}
+            onChange={(field, newOrder) => {
+              setSortBy(field);
+              setOrder(newOrder);
+            }}
+          />
+
           <button className="btn primary" onClick={() => setShowAddModal(true)}>
             + Add User
           </button>
@@ -185,122 +244,134 @@ export default function Users() {
       {error && <div className="alert error">{error}</div>}
 
       {/* Multi-field User Filtration Bar */}
-      <div className="filter-card">
-        <div className="filter-bar">
-          <div className="filter-group lg">
-            <span className="filter-label">🔍 Search</span>
-            <input
-              type="search"
-              className="filter-input"
-              placeholder="Search by username, email, or ID…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="filter-group">
-            <span className="filter-label">🛡️ Role</span>
-            <select
-              className="filter-select"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="all">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="user">User</option>
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <span className="filter-label">⚡ Status</span>
-            <select
-              className="filter-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All Statuses</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-            </select>
-          </div>
-
-          <div className="filter-actions">
-            <button
-              type="button"
-              className="filter-clear-btn"
-              onClick={clearFilters}
-              disabled={activeFilterCount === 0}
-              title="Reset all filters"
-            >
-              ✕ Reset Filters
-              {activeFilterCount > 0 && (
-                <span className="filter-badge-active">{activeFilterCount}</span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {activeFilterCount > 0 && (
-          <div className="filter-summary">
-            <div className="filter-chips">
-              <span className="small muted">Active filters:</span>
-              {searchTerm.trim() && (
-                <span className="filter-chip">
-                  Search: "{searchTerm.trim()}"
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove search filter"
-                    onClick={() => {
-                      setSearchTerm("");
-                      setDebouncedSearch("");
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {roleFilter !== "all" && (
-                <span className="filter-chip">
-                  Role: {roleFilter}
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove role filter"
-                    onClick={() => setRoleFilter("all")}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-              {statusFilter !== "all" && (
-                <span className="filter-chip">
-                  Status: {statusFilter}
-                  <button
-                    className="filter-chip-remove"
-                    title="Remove status filter"
-                    onClick={() => setStatusFilter("all")}
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
+      {showFilters && (
+        <div className="filter-card">
+          <div className="filter-bar">
+            <div className="filter-group lg">
+              <span className="filter-label">🔍 Search</span>
+              <input
+                type="search"
+                className="filter-input"
+                placeholder="Search by username, email, or ID…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <span className="small muted">
-              Showing {users.length} matching {users.length === 1 ? "user" : "users"}
-            </span>
+
+            <div className="filter-group">
+              <span className="filter-label">🛡️ Role</span>
+              <select
+                className="filter-select"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+              >
+                <option value="all">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="manager">Manager</option>
+                <option value="user">User</option>
+              </select>
+            </div>
+
+            <div className="filter-group">
+              <span className="filter-label">⚡ Status</span>
+              <select
+                className="filter-select"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active Only</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+            </div>
+
+            <div className="filter-actions">
+              <button
+                type="button"
+                className="filter-clear-btn"
+                onClick={clearFilters}
+                disabled={activeFilterCount === 0}
+                title="Reset all filters"
+              >
+                ✕ Reset Filters
+                {activeFilterCount > 0 && (
+                  <span className="filter-badge-active">{activeFilterCount}</span>
+                )}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+
+          {activeFilterCount > 0 && (
+            <div className="filter-summary">
+              <div className="filter-chips">
+                <span className="small muted">Active filters:</span>
+                {searchTerm.trim() && (
+                  <span className="filter-chip">
+                    Search: "{searchTerm.trim()}"
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove search filter"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setDebouncedSearch("");
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {roleFilter !== "all" && (
+                  <span className="filter-chip">
+                    Role: {roleFilter}
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove role filter"
+                      onClick={() => setRoleFilter("all")}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {statusFilter !== "all" && (
+                  <span className="filter-chip">
+                    Status: {statusFilter}
+                    <button
+                      className="filter-chip-remove"
+                      title="Remove status filter"
+                      onClick={() => setStatusFilter("all")}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </div>
+              <span className="small muted">
+                Showing {users.length} matching {users.length === 1 ? "user" : "users"}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card table-wrap">
         <table>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Status</th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("id")}>
+                <div className="th-content">ID{arrow("id")}</div>
+              </th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("username")}>
+                <div className="th-content">Username{arrow("username")}</div>
+              </th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("email")}>
+                <div className="th-content">Email{arrow("email")}</div>
+              </th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("role")}>
+                <div className="th-content">Role{arrow("role")}</div>
+              </th>
+              <th className="sortable sortable-th" onClick={() => toggleSort("is_active")}>
+                <div className="th-content">Status{arrow("is_active")}</div>
+              </th>
               <th className="right">Actions</th>
             </tr>
           </thead>

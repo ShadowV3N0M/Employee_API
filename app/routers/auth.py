@@ -267,15 +267,26 @@ def reset_password(
             status_code=500, detail=f"Database error: {str(e)}")
 
 
+USER_SORTABLE = {
+    "id": UserDB.id,
+    "username": UserDB.username,
+    "email": UserDB.email,
+    "role": UserDB.role,
+    "is_active": UserDB.is_active,
+}
+
+
 @router.get("/users")
 def list_users(
     search: Optional[str] = None,
     role: Optional[str] = None,
     is_active: Optional[bool] = None,
+    sort_by: str = "id",
+    order: str = "asc",
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(require_admin)
 ):
-    """Admin only. List all users with optional filtering by query, role, and active status."""
+    """Admin only. List all users with optional filtering by query, role, and active status, and sorting."""
     try:
         query = db.query(UserDB)
 
@@ -295,7 +306,8 @@ def list_users(
         if is_active is not None:
             query = query.filter(UserDB.is_active == is_active)
 
-        users = query.order_by(UserDB.id.asc()).all()
+        col = USER_SORTABLE.get(sort_by, UserDB.id)
+        users = query.order_by(col.desc() if order == "desc" else col.asc()).all()
         return [
             {"id": u.id, "username": u.username, "email": u.email,
              "role": u.role, "is_active": u.is_active}
