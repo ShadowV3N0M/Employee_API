@@ -4,6 +4,7 @@ from app.schemas.department import (
     DepartmentResponse,
     DepartmentUpdate,
     DepartmentBulkCreate,
+    DepartmentHistoryResponse,
 )
 from app.schemas.employee import (
     Employee,
@@ -29,6 +30,7 @@ __all__ = [
     "DepartmentResponse",
     "DepartmentUpdate",
     "DepartmentBulkCreate",
+    "DepartmentHistoryResponse",
     "Employee",
     "EmployeeUpdate",
     "SalarySet",

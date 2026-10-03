@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { formatMoney } from "../format";
+import DepartmentEditModal from "../components/DepartmentEditModal";
+import DepartmentHistoryModal from "../components/DepartmentHistoryModal";
 
 export default function Departments() {
   const { user } = useAuth();
@@ -16,6 +18,12 @@ export default function Departments() {
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Admin action modal states
+  const [editingDept, setEditingDept] = useState(null);
+  const [historyDept, setHistoryDept] = useState(null);
+  const [showGlobalHistory, setShowGlobalHistory] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   // Filtration state
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,6 +79,26 @@ export default function Departments() {
     }
   }
 
+  async function handleDelete(dept) {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete department "${dept.Dept_Name}" (ID #${dept.Dept_ID})?\n\nThis will permanently delete the department. If any employees are assigned to it, the deletion will be blocked.`
+    );
+    if (!confirmed) return;
+
+    setError("");
+    setNotice("");
+    setDeletingId(dept.Dept_ID);
+    try {
+      const res = await api.deleteDepartment(dept.Dept_ID);
+      setNotice(res.message || `Department "${dept.Dept_Name}" deleted successfully.`);
+      await load();
+    } catch (err) {
+      setError(err.message || "Failed to delete department.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (searchTerm.trim()) count++;
@@ -94,6 +122,19 @@ export default function Departments() {
           <p className="muted">
             {departments.length} {departments.length === 1 ? "department" : "departments"}
           </p>
+        </div>
+
+        <div className="toolbar">
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => setShowGlobalHistory(true)}
+              title="View global department change & budget revision history"
+            >
+              📜 Audit History
+            </button>
+          )}
         </div>
       </div>
 
@@ -247,19 +288,20 @@ export default function Departments() {
               <th>ID</th>
               <th>Name</th>
               <th className="num">Budget</th>
+              {isAdmin && <th className="right">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={3} className="muted center">
+                <td colSpan={isAdmin ? 4 : 3} className="muted center">
                   Loading…
                 </td>
               </tr>
             )}
             {!loading && departments.length === 0 && !error && (
               <tr>
-                <td colSpan={3} className="muted center" style={{ padding: "30px 10px" }}>
+                <td colSpan={isAdmin ? 4 : 3} className="muted center" style={{ padding: "30px 10px" }}>
                   {activeFilterCount > 0
                     ? "No departments matched the filter criteria."
                     : "No departments yet."}
@@ -280,13 +322,72 @@ export default function Departments() {
                   <strong>{d.Dept_Name}</strong>
                 </td>
                 <td className="num">{d.Budget == null ? "—" : formatMoney(d.Budget)}</td>
+                {isAdmin && (
+                  <td className="right nowrap">
+                    <button
+                      type="button"
+                      className="btn small secondary"
+                      onClick={() => setEditingDept(d)}
+                      title="Edit department name & allocated budget"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      onClick={() => setHistoryDept(d)}
+                      title="View revision & budget history"
+                    >
+                      📜 History
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small danger"
+                      onClick={() => handleDelete(d)}
+                      disabled={deletingId === d.Dept_ID}
+                      title="Delete department"
+                    >
+                      🗑️ {deletingId === d.Dept_ID ? "Deleting…" : "Delete"}
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {!isAdmin && <p className="muted small" style={{ marginTop: "12px" }}>Only admins can create departments.</p>}
+      {!isAdmin && (
+        <p className="muted small" style={{ marginTop: "12px" }}>
+          Only admins can create, edit, change budgets, inspect history, or delete departments.
+        </p>
+      )}
+
+      {/* Admin Action Modals */}
+      {editingDept && (
+        <DepartmentEditModal
+          department={editingDept}
+          onClose={() => setEditingDept(null)}
+          onSaved={(msg) => {
+            setNotice(msg);
+            load();
+          }}
+        />
+      )}
+
+      {historyDept && (
+        <DepartmentHistoryModal
+          department={historyDept}
+          onClose={() => setHistoryDept(null)}
+        />
+      )}
+
+      {showGlobalHistory && (
+        <DepartmentHistoryModal
+          department={null}
+          onClose={() => setShowGlobalHistory(false)}
+        />
+      )}
     </>
   );
 }

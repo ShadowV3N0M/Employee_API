@@ -141,6 +141,8 @@ export const api = {
   createDepartment: (body) => request("/departments", { method: "POST", body }),
   updateDepartment: (id, body) => request(`/departments/${id}`, { method: "PUT", body }),
   deleteDepartment: (id) => request(`/departments/${id}`, { method: "DELETE" }),
+  departmentHistory: (id) => request(`/departments/${id}/history`),
+  allDepartmentsHistory: () => request("/departments/history/all"),
   bulkCreateDepartments: (departments) =>
     request("/departments/bulk-create", { method: "POST", body: { departments } }),
 

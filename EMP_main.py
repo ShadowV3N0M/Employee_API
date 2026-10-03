@@ -30,6 +30,7 @@ from app.schemas import (
 )
 from app.models import (
     DepartmentDB,
+    DepartmentHistoryDB,
     EmployeeDB,
     PasswordResetTokenDB,
     SalaryHistoryDB,
@@ -135,6 +136,7 @@ __all__ = [
     "CORS_ORIGINS",
     "limiter",
     "DepartmentDB",
+    "DepartmentHistoryDB",
     "EmployeeDB",
     "SalaryHistoryDB",
     "UserDB",

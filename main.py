@@ -7,6 +7,7 @@ Usage:
 """
 from app.models import (
     DepartmentDB,
+    DepartmentHistoryDB,
     EmployeeDB,
     PasswordResetTokenDB,
     SalaryHistoryDB,
@@ -33,6 +34,7 @@ __all__ = [
     "SessionLocal",
     "get_db",
     "DepartmentDB",
+    "DepartmentHistoryDB",
     "EmployeeDB",
     "SalaryHistoryDB",
     "UserDB",

@@ -764,6 +764,23 @@ git reset --soft HEAD~1
   - Detailed department compensation breakdown table with headcount, total payroll, average salary, and budget utilization.
   - Route guarded for `manager` and `admin` roles.
 
+### 14. Admin Department Management: Budget Editing, Revision Audit History & Safe Deletion
+- **Admin Department Editing (`PUT /departments/{dept_id}`):**
+  - Admins can update department names and modify allocated budgets with instant DB persistence.
+  - Validates uniqueness of department name and ensures budget is non-negative.
+  - Accepts optional change reason / audit notes (`payload.notes`).
+- **Department Revision & Budget History (`DepartmentHistoryDB`, `GET /departments/{dept_id}/history` & `GET /departments/history/all`):**
+  - Automatically records historical audit records for department creation (`CREATED`), budget adjustments (`BUDGET_REVISED`), renames (`NAME_CHANGED`), and deletions (`DELETED`).
+  - Stores `old_budget`, `new_budget`, `old_name`, `new_name`, `changed_by`, `changed_at`, and `notes`.
+  - Accessible only by `admin` role.
+- **Safe Department Deletion (`DELETE /departments/{dept_id}`):**
+  - Blocks deletion if employees (active or inactive) are currently assigned to the department (`HTTP 400 Bad Request` with employee count).
+  - Automatically detaches previous history logs (`Dept_ID=None`) before deleting to preserve audit history without foreign key violations.
+  - Logs a permanent deletion entry with the admin's username in `DepartmentHistoryDB`.
+- **Frontend Admin Action Panel (`Departments.jsx`, `DepartmentEditModal.jsx`, `DepartmentHistoryModal.jsx`):**
+  - Interactive **Edit**, **History**, and **Delete** action buttons on table rows (visible exclusively to `admin`).
+  - Global "📜 Audit History" header action for inspecting company-wide department logs.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -780,6 +797,7 @@ git reset --soft HEAD~1
 - [x] **Modern Collapsible Left Sidebar & Responsive Mobile Drawer** - Collapsible sidebar with localStorage persistence, mobile drawer overlay, and hamburger navigation
 - [x] **User Profile & Account Dropdown Menu** - Topbar account menu with avatar, role badge, "Change Password" modal, and sign out
 - [x] **Analytics & Payroll Dashboard** - Visual KPI cards, department budget utilization progress bars, and breakdown tables for managers & admins
+- [x] **Admin Department Management & Budget Revision History** - Department name & budget allocation editing, automated revision audit trail, and safe deletion with employee assignment protection
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 

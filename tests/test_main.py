@@ -802,3 +802,97 @@ def test_admin_create_user_with_role():
     client.delete("/auth/users/direct_mgr", headers=admin)
 
 
+def test_department_edit_history_and_delete():
+    """Verify admin-only department editing, budget revision history, and safe deletion."""
+    admin = headers_for("admin")
+    user = headers_for("user")
+
+    # 1. Create a test department
+    create_resp = client.post(
+        "/departments",
+        json={"Dept_Name": "Robotics Lab", "Budget": 300000},
+        headers=admin
+    )
+    assert create_resp.status_code == 200
+    dept_id = create_resp.json()["Dept_ID"]
+
+    # 2. Non-admin cannot edit department
+    forbidden_edit = client.put(
+        f"/departments/{dept_id}",
+        json={"Dept_Name": "Robotics AI", "Budget": 450000},
+        headers=user
+    )
+    assert forbidden_edit.status_code == 403
+
+    # 3. Admin edits department budget and name
+    edit_resp = client.put(
+        f"/departments/{dept_id}",
+        json={
+            "Dept_Name": "Robotics & AI",
+            "Budget": 550000,
+            "notes": "Q4 AI expansion budget"
+        },
+        headers=admin
+    )
+    assert edit_resp.status_code == 200
+    assert edit_resp.json()["Dept_Name"] == "Robotics & AI"
+    assert float(edit_resp.json()["Budget"]) == 550000
+
+    # 4. Check department history
+    hist_resp = client.get(f"/departments/{dept_id}/history", headers=admin)
+    assert hist_resp.status_code == 200
+    history_items = hist_resp.json()
+    assert len(history_items) >= 2  # CREATED + NAME_AND_BUDGET_UPDATED
+    latest = history_items[0]
+    assert latest["change_type"] == "NAME_AND_BUDGET_UPDATED"
+    assert float(latest["old_budget"]) == 300000
+    assert float(latest["new_budget"]) == 550000
+    assert latest["notes"] == "Q4 AI expansion budget"
+    assert latest["changed_by"] == "admin"
+
+    # 5. Non-admin cannot view department history
+    hist_forbidden = client.get(f"/departments/{dept_id}/history", headers=user)
+    assert hist_forbidden.status_code == 403
+
+    # 6. Global department history
+    global_hist = client.get("/departments/history/all", headers=admin)
+    assert global_hist.status_code == 200
+    assert any(h["Dept_Name"] == "Robotics & AI" for h in global_hist.json())
+
+    # 7. Add an employee to department and verify deletion is blocked
+    emp_resp = client.post(
+        "/employees",
+        json={
+            "Emp_ID": 991,
+            "F_Name": "Nikola",
+            "L_Name": "Tesla",
+            "Salary": 120000,
+            "Dept_ID": dept_id,
+            "Address": "Wardenclyffe",
+        },
+        headers=admin
+    )
+    assert emp_resp.status_code == 200
+
+    del_blocked = client.delete(f"/departments/{dept_id}", headers=admin)
+    assert del_blocked.status_code == 400
+    assert "employee(s) are assigned to it" in del_blocked.json()["detail"]
+
+    # 8. Remove employee and verify successful deletion
+    client.delete("/employees/991/delete", headers=admin)
+
+    # 9. Non-admin cannot delete department
+    del_forbidden = client.delete(f"/departments/{dept_id}", headers=user)
+    assert del_forbidden.status_code == 403
+
+    # 10. Admin deletes empty department
+    del_success = client.delete(f"/departments/{dept_id}", headers=admin)
+    assert del_success.status_code == 200
+    assert "deleted successfully" in del_success.json()["message"]
+
+    # 11. Department no longer exists
+    get_404 = client.get(f"/departments/{dept_id}", headers=admin)
+    assert get_404.status_code == 404
+
+
+

@@ -7,10 +7,15 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user, require_admin
 from app.config import limiter
 from app.database import get_db
-from app.models.department import DepartmentDB
+from app.models.department import DepartmentDB, DepartmentHistoryDB
 from app.models.employee import EmployeeDB
 from app.models.user import UserDB
-from app.schemas.department import DepartmentBulkCreate, DepartmentCreate, DepartmentUpdate
+from app.schemas.department import (
+    DepartmentBulkCreate,
+    DepartmentCreate,
+    DepartmentHistoryResponse,
+    DepartmentUpdate,
+)
 from app.services.employee_service import employee_view
 
 router = APIRouter(prefix="/departments", tags=["Departments"])
@@ -37,6 +42,21 @@ def create_department(
         new_dept = DepartmentDB(
             Dept_Name=dept.Dept_Name.strip(), Budget=dept.Budget)
         db.add(new_dept)
+        db.flush()
+
+        # Log creation history
+        hist = DepartmentHistoryDB(
+            Dept_ID=new_dept.Dept_ID,
+            Dept_Name=new_dept.Dept_Name,
+            old_budget=None,
+            new_budget=float(new_dept.Budget) if new_dept.Budget is not None else None,
+            old_name=None,
+            new_name=new_dept.Dept_Name,
+            change_type="CREATED",
+            notes="Department created",
+            changed_by=current_user.username,
+        )
+        db.add(hist)
         db.commit()
         db.refresh(new_dept)
 
@@ -187,6 +207,42 @@ def list_department_employees(
     return [employee_view(e, current_user.role) for e in employees]
 
 
+@router.get("/history/all", response_model=list[DepartmentHistoryResponse])
+def get_all_departments_history(
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin)
+):
+    """Admin only. Get full change and budget revision history across all departments."""
+    try:
+        return db.query(DepartmentHistoryDB).order_by(
+            DepartmentHistoryDB.changed_at.desc(), DepartmentHistoryDB.id.desc()
+        ).limit(200).all()
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.get("/{dept_id}/history", response_model=list[DepartmentHistoryResponse])
+def get_department_history(
+    dept_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin)
+):
+    """Admin only. Get change and budget revision history for a specific department."""
+    dept = db.query(DepartmentDB).filter(
+        DepartmentDB.Dept_ID == dept_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    try:
+        return db.query(DepartmentHistoryDB).filter(
+            DepartmentHistoryDB.Dept_ID == dept_id
+        ).order_by(DepartmentHistoryDB.changed_at.desc(), DepartmentHistoryDB.id.desc()).all()
+    except SQLAlchemyError as e:
+        raise HTTPException(
+            status_code=500, detail=f"Database error: {str(e)}")
+
+
 @router.put("/{dept_id}")
 @limiter.limit("10/minute")
 def update_department(
@@ -196,30 +252,60 @@ def update_department(
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(require_admin)
 ):
-    """Admin only. Update a department's name or budget."""
+    """Admin only. Update a department's name or budget and record change history."""
     dept = db.query(DepartmentDB).filter(
         DepartmentDB.Dept_ID == dept_id).first()
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
 
     try:
+        old_name = dept.Dept_Name
+        old_budget = float(dept.Budget) if dept.Budget is not None else None
+
+        new_name = payload.Dept_Name.strip() if payload.Dept_Name and payload.Dept_Name.strip() else old_name
+        new_budget = payload.Budget if payload.Budget is not None else old_budget
+
         if payload.Dept_Name is not None and payload.Dept_Name.strip():
             # Check unique name constraint
             name_check = db.query(DepartmentDB).filter(
                 func.lower(
-                    DepartmentDB.Dept_Name) == payload.Dept_Name.strip().lower(),
+                    DepartmentDB.Dept_Name) == new_name.lower(),
                 DepartmentDB.Dept_ID != dept_id
             ).first()
             if name_check:
                 raise HTTPException(
                     status_code=409, detail="Another department already uses this name")
-            dept.Dept_Name = payload.Dept_Name.strip()
+            dept.Dept_Name = new_name
 
         if payload.Budget is not None:
             if payload.Budget < 0:
                 raise HTTPException(
                     status_code=400, detail="Budget cannot be negative")
-            dept.Budget = payload.Budget
+            dept.Budget = new_budget
+
+        has_name_change = (new_name != old_name)
+        has_budget_change = (new_budget != old_budget)
+
+        if has_name_change or has_budget_change:
+            if has_name_change and has_budget_change:
+                change_type = "NAME_AND_BUDGET_UPDATED"
+            elif has_budget_change:
+                change_type = "BUDGET_REVISED"
+            else:
+                change_type = "NAME_CHANGED"
+
+            hist = DepartmentHistoryDB(
+                Dept_ID=dept.Dept_ID,
+                Dept_Name=new_name,
+                old_budget=old_budget,
+                new_budget=new_budget,
+                old_name=old_name if has_name_change else None,
+                new_name=new_name if has_name_change else None,
+                change_type=change_type,
+                notes=payload.notes.strip() if payload.notes and payload.notes.strip() else None,
+                changed_by=current_user.username,
+            )
+            db.add(hist)
 
         db.commit()
         db.refresh(dept)
@@ -258,6 +344,24 @@ def delete_department(
         )
 
     try:
+        # Detach prior history records to keep audit trail without FK violation
+        db.query(DepartmentHistoryDB).filter(
+            DepartmentHistoryDB.Dept_ID == dept_id
+        ).update({"Dept_ID": None})
+
+        # Record deletion event in history
+        hist = DepartmentHistoryDB(
+            Dept_ID=None,
+            Dept_Name=dept.Dept_Name,
+            old_budget=float(dept.Budget) if dept.Budget is not None else None,
+            new_budget=None,
+            old_name=dept.Dept_Name,
+            new_name=None,
+            change_type="DELETED",
+            notes=f"Department '{dept.Dept_Name}' permanently deleted",
+            changed_by=current_user.username,
+        )
+        db.add(hist)
         db.delete(dept)
         db.commit()
         return {"message": f"Department '{dept.Dept_Name}' (ID {dept_id}) deleted successfully"}
