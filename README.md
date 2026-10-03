@@ -742,6 +742,28 @@ git reset --soft HEAD~1
   - Modern, responsive filter cards placed directly above all data tables (`Employees.jsx`, `Departments.jsx`, `Users.jsx`, and `HistoryModal.jsx`).
   - 300ms debounced text search, clean dropdown selectors, active filter badge counters, interactive filter chip tags with one-click individual removals, and a master "Reset Filters" action.
 
+### 13. Modern Menu Bar, User Profile Dropdown & Payroll Analytics Dashboard
+- **Modern Collapsible Left Sidebar:**
+  - Sleek collapsible sidebar menu bar with brand header, navigation icons, and expand/collapse toggle (`◀` / `▶`).
+  - Animated width transitions between 250px (expanded) and 72px (collapsed icon-only mode with tooltips).
+  - Preference persisted in browser `localStorage` (`sidebar_collapsed`).
+  - Active route highlighting and user status footer brief.
+- **Responsive Mobile Drawer Navigation:**
+  - On screens < 900px, transitions seamlessly to an off-canvas drawer (`transform: translateX(-100%)`).
+  - Topbar hamburger button (`☰`) triggers drawer with a dark blur backdrop overlay (`.sidebar-backdrop`).
+  - Automatically auto-closes when a route link is selected.
+- **User Profile & Account Dropdown Menu:**
+  - Modern user menu button in topbar displaying initials avatar, username, role badge, and animated indicator arrow.
+  - Dropdown menu panel displaying user avatar, username, email address, role badge, and interactive actions.
+  - **"🔑 Change Password" Action Modal (`ChangePasswordModal.jsx`):** Self-service password updates from the topbar with client-side validation and backend integration (`POST /auth/change-password`).
+  - **"🚪 Sign Out" Action:** Fast session termination.
+  - Click-outside listener and Escape key dismiss.
+- **Payroll & Analytics Dashboard (`Analytics.jsx`):**
+  - Company-wide compensation metrics (`GET /employees/salary/summary`): Total Payroll Expense, Active Staff Headcount, Average Compensation, and Salary Range.
+  - Department budget utilization cards with percentage progress bars (color-coded for safe, warning ≥80%, and over-budget >100%).
+  - Detailed department compensation breakdown table with headcount, total payroll, average salary, and budget utilization.
+  - Route guarded for `manager` and `admin` roles.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -755,6 +777,9 @@ git reset --soft HEAD~1
 - [x] **Rooster & Owl Waking-Up Mascots** - Animated sunrise rooster (light) and twilight owl (dark) with interactive stage choreography
 - [x] **3D Card Flip Animation** - Interactive 3D perspective flip transition between Sign In and Registration forms with accessibility controls
 - [x] **Multi-Field Table Filtration Across All Database Entities** - Full search, department, role, status, and compensation boundaries across Employee, Department, User, and Salary History tables with synchronized CSV export
+- [x] **Modern Collapsible Left Sidebar & Responsive Mobile Drawer** - Collapsible sidebar with localStorage persistence, mobile drawer overlay, and hamburger navigation
+- [x] **User Profile & Account Dropdown Menu** - Topbar account menu with avatar, role badge, "Change Password" modal, and sign out
+- [x] **Analytics & Payroll Dashboard** - Visual KPI cards, department budget utilization progress bars, and breakdown tables for managers & admins
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 

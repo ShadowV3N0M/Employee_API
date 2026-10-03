@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Employees from "./pages/Employees";
 import Departments from "./pages/Departments";
+import Analytics from "./pages/Analytics";
 import Users from "./pages/Users";
 
 // Guards a route: must be logged in, and (optionally) have one of `roles`.
@@ -33,6 +34,14 @@ export default function App() {
       >
         <Route path="/" element={<Employees />} />
         <Route path="/departments" element={<Departments />} />
+        <Route
+          path="/analytics"
+          element={
+            <RequireAuth roles={["manager", "admin"]}>
+              <Analytics />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/users"
           element={
