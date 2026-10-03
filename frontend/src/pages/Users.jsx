@@ -13,7 +13,12 @@ export default function Users() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [query, setQuery] = useState("");
+
+  // Filtration state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Add User modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -26,10 +31,25 @@ export default function Users() {
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const load = () => {
     setLoading(true);
+    const params = {
+      search: debouncedSearch.trim() || undefined,
+      role: roleFilter !== "all" ? roleFilter : undefined,
+      is_active:
+        statusFilter === "active" ? true : statusFilter === "inactive" ? false : undefined,
+    };
+
     return api
-      .listUsers()
+      .listUsers(params)
       .then(setUsers)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -37,7 +57,7 @@ export default function Users() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [debouncedSearch, roleFilter, statusFilter]);
 
   async function changeRole(username, role) {
     setError("");
@@ -125,16 +145,20 @@ export default function Users() {
     }
   }
 
-  const filteredUsers = useMemo(() => {
-    if (!query.trim()) return users;
-    const q = query.toLowerCase();
-    return users.filter(
-      (u) =>
-        u.username.toLowerCase().includes(q) ||
-        (u.email && u.email.toLowerCase().includes(q)) ||
-        u.role.toLowerCase().includes(q)
-    );
-  }, [users, query]);
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchTerm.trim()) count++;
+    if (roleFilter !== "all") count++;
+    if (statusFilter !== "all") count++;
+    return count;
+  }, [searchTerm, roleFilter, statusFilter]);
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setDebouncedSearch("");
+    setRoleFilter("all");
+    setStatusFilter("all");
+  };
 
   return (
     <>
@@ -147,13 +171,6 @@ export default function Users() {
         </div>
 
         <div className="toolbar">
-          <input
-            type="search"
-            placeholder="Search users…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ padding: "6px 12px", minWidth: "200px" }}
-          />
           <button className="btn primary" onClick={() => setShowAddModal(true)}>
             + Add User
           </button>
@@ -166,6 +183,114 @@ export default function Users() {
         </div>
       )}
       {error && <div className="alert error">{error}</div>}
+
+      {/* Multi-field User Filtration Bar */}
+      <div className="filter-card">
+        <div className="filter-bar">
+          <div className="filter-group lg">
+            <span className="filter-label">🔍 Search</span>
+            <input
+              type="search"
+              className="filter-input"
+              placeholder="Search by username, email, or ID…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="filter-group">
+            <span className="filter-label">🛡️ Role</span>
+            <select
+              className="filter-select"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="all">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="user">User</option>
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <span className="filter-label">⚡ Status</span>
+            <select
+              className="filter-select"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All Statuses</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+          </div>
+
+          <div className="filter-actions">
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={clearFilters}
+              disabled={activeFilterCount === 0}
+              title="Reset all filters"
+            >
+              ✕ Reset Filters
+              {activeFilterCount > 0 && (
+                <span className="filter-badge-active">{activeFilterCount}</span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {activeFilterCount > 0 && (
+          <div className="filter-summary">
+            <div className="filter-chips">
+              <span className="small muted">Active filters:</span>
+              {searchTerm.trim() && (
+                <span className="filter-chip">
+                  Search: "{searchTerm.trim()}"
+                  <button
+                    className="filter-chip-remove"
+                    title="Remove search filter"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setDebouncedSearch("");
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {roleFilter !== "all" && (
+                <span className="filter-chip">
+                  Role: {roleFilter}
+                  <button
+                    className="filter-chip-remove"
+                    title="Remove role filter"
+                    onClick={() => setRoleFilter("all")}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {statusFilter !== "all" && (
+                <span className="filter-chip">
+                  Status: {statusFilter}
+                  <button
+                    className="filter-chip-remove"
+                    title="Remove status filter"
+                    onClick={() => setStatusFilter("all")}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </div>
+            <span className="small muted">
+              Showing {users.length} matching {users.length === 1 ? "user" : "users"}
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className="card table-wrap">
         <table>
@@ -188,15 +313,24 @@ export default function Users() {
               </tr>
             )}
 
-            {!loading && filteredUsers.length === 0 && (
+            {!loading && users.length === 0 && !error && (
               <tr>
-                <td colSpan={6} className="muted center">
-                  {users.length === 0 ? "No users registered." : "No matching users found."}
+                <td colSpan={6} className="muted center" style={{ padding: "30px 10px" }}>
+                  {activeFilterCount > 0
+                    ? "No users matched the filter criteria."
+                    : "No users registered."}
+                  {activeFilterCount > 0 && (
+                    <div style={{ marginTop: "8px" }}>
+                      <button className="link" onClick={clearFilters}>
+                        Clear filters to see all users
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             )}
 
-            {filteredUsers.map((u) => {
+            {users.map((u) => {
               const isMe = u.username === me.username;
               return (
                 <tr key={u.id}>
@@ -260,10 +394,21 @@ export default function Users() {
               Username <span style={{ color: "red" }}>*</span>
               <input
                 type="text"
-                required
                 value={form.username}
-                placeholder="e.g. rahul.m"
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
+                required
+                minLength={3}
+                placeholder="Unique username (min 3 chars)"
+              />
+            </label>
+
+            <label>
+              Email (optional)
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="user@example.com"
               />
             </label>
 
@@ -271,26 +416,16 @@ export default function Users() {
               Password <span style={{ color: "red" }}>*</span>
               <input
                 type="password"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
                 required
                 minLength={6}
-                value={form.password}
-                placeholder="At least 6 characters"
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Temporary password (min 6 chars)"
               />
             </label>
 
             <label>
-              Email (Optional)
-              <input
-                type="email"
-                value={form.email}
-                placeholder="user@example.com"
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </label>
-
-            <label>
-              Assign Role <span style={{ color: "red" }}>*</span>
+              Role <span style={{ color: "red" }}>*</span>
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value })}
@@ -303,7 +438,7 @@ export default function Users() {
               </select>
             </label>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" }}>
               <button
                 type="button"
                 className="btn ghost"

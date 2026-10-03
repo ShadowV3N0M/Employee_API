@@ -1,5 +1,7 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
+from sqlalchemy import func, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -35,10 +37,15 @@ def get_employees(
     sort_by: str = "Emp_ID",
     order: str = "asc",
     include_inactive: bool = False,
+    search: Optional[str] = None,
+    dept_id: Optional[int] = None,
+    status: Optional[str] = None,
+    min_salary: Optional[float] = None,
+    max_salary: Optional[float] = None,
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user)
 ):
-    """List employees with pagination, sorting, and role-based field filtering."""
+    """List employees with pagination, sorting, and multi-field filtering."""
     try:
         if page < 1 or limit < 1 or limit > 200:
             raise HTTPException(
@@ -46,9 +53,60 @@ def get_employees(
                 detail="page must be >= 1 and limit must be between 1 and 200"
             )
 
+        # Standard users are restricted from sorting or filtering on salary
+        if current_user.role == "user":
+            if sort_by == "Salary":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Standard users cannot sort by salary"
+                )
+            if min_salary is not None or max_salary is not None:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Standard users cannot filter by salary"
+                )
+            if include_inactive or status in ("inactive", "all"):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Standard users cannot view inactive employees"
+                )
+
         query = db.query(EmployeeDB)
-        if not include_inactive:
+
+        # Status filter
+        if status == "active":
             query = query.filter(EmployeeDB.is_active == True)  # noqa: E712
+        elif status == "inactive":
+            query = query.filter(EmployeeDB.is_active == False)  # noqa: E712
+        elif status == "all":
+            pass  # return both active and inactive
+        else:
+            # Fallback to include_inactive parameter
+            if not include_inactive:
+                query = query.filter(EmployeeDB.is_active == True)  # noqa: E712
+
+        # Text search (matches Name, Email, or exact ID if numeric)
+        if search and search.strip():
+            s = search.strip()
+            search_conds = [
+                EmployeeDB.F_Name.ilike(f"%{s}%"),
+                EmployeeDB.L_Name.ilike(f"%{s}%"),
+                func.concat(EmployeeDB.F_Name, ' ', EmployeeDB.L_Name).ilike(f"%{s}%"),
+                EmployeeDB.Email.ilike(f"%{s}%")
+            ]
+            if s.isdigit():
+                search_conds.append(EmployeeDB.Emp_ID == int(s))
+            query = query.filter(or_(*search_conds))
+
+        # Department filter
+        if dept_id is not None:
+            query = query.filter(EmployeeDB.Dept_ID == dept_id)
+
+        # Salary range filter (manager / admin only)
+        if min_salary is not None:
+            query = query.filter(EmployeeDB.Salary >= min_salary)
+        if max_salary is not None:
+            query = query.filter(EmployeeDB.Salary <= max_salary)
 
         sort_column = SORTABLE_FIELDS.get(sort_by, EmployeeDB.Emp_ID)
         query = query.order_by(sort_column.desc() if order ==
@@ -139,16 +197,68 @@ async def upload_employees_excel(
 @router.get("/export")
 def export_employees(
     include_inactive: bool = False,
+    search: Optional[str] = None,
+    dept_id: Optional[int] = None,
+    status: Optional[str] = None,
+    min_salary: Optional[float] = None,
+    max_salary: Optional[float] = None,
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user),
 ):
     """
     Export the employee directory to CSV.
     Role-based rules apply: users see public info; managers and admins see full compensation and addresses.
+    Supports filtering by search query, department, status, and salary range.
     """
+    # Enforce role restrictions
+    if current_user.role == "user":
+        if min_salary is not None or max_salary is not None:
+            raise HTTPException(
+                status_code=403,
+                detail="Standard users cannot filter export by salary"
+            )
+        if include_inactive or status in ("inactive", "all"):
+            raise HTTPException(
+                status_code=403,
+                detail="Standard users cannot export inactive employees"
+            )
+
     query = db.query(EmployeeDB)
-    if not include_inactive:
+
+    # Status filter
+    if status == "active":
         query = query.filter(EmployeeDB.is_active == True)  # noqa: E712
+    elif status == "inactive":
+        query = query.filter(EmployeeDB.is_active == False)  # noqa: E712
+    elif status == "all":
+        pass
+    else:
+        if not include_inactive:
+            query = query.filter(EmployeeDB.is_active == True)  # noqa: E712
+
+    # Search filter
+    if search and search.strip():
+        s = search.strip()
+        search_conds = [
+            EmployeeDB.F_Name.ilike(f"%{s}%"),
+            EmployeeDB.L_Name.ilike(f"%{s}%"),
+            func.concat(EmployeeDB.F_Name, ' ', EmployeeDB.L_Name).ilike(f"%{s}%"),
+            EmployeeDB.Email.ilike(f"%{s}%")
+        ]
+        if s.isdigit():
+            search_conds.append(EmployeeDB.Emp_ID == int(s))
+        query = query.filter(or_(*search_conds))
+
+    # Department filter
+    if dept_id is not None:
+        query = query.filter(EmployeeDB.Dept_ID == dept_id)
+
+    # Salary filters
+    if min_salary is not None:
+        query = query.filter(EmployeeDB.Salary >= min_salary)
+    if max_salary is not None:
+        query = query.filter(EmployeeDB.Salary <= max_salary)
+
     employees = query.order_by(EmployeeDB.Emp_ID.asc()).all()
 
     depts = db.query(DepartmentDB).all()

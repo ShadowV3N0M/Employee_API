@@ -37,7 +37,7 @@ class BulkEmployeeDelete(BaseModel):
 
 
 class BulkSalaryIncrement(BaseModel):
-    # Fixed dollar increase, e.g. 5000.00
+    # Fixed dollar/INR increase, e.g. 5000.00
     amount: Optional[float] = None
     # Percentage raise, e.g. 10.0 for +10%
     percentage: Optional[float] = None

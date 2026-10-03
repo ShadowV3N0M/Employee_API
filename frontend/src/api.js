@@ -103,7 +103,13 @@ export const api = {
     }),
 
   // --- users (admin) ---
-  listUsers: () => request("/auth/users"),
+  listUsers: (params) => {
+    const clean = Object.fromEntries(
+      Object.entries(params || {}).filter(([_, v]) => v != null && v !== "")
+    );
+    const q = new URLSearchParams(clean).toString();
+    return request(`/auth/users${q ? `?${q}` : ""}`);
+  },
   createUser: (body) => request("/auth/users", { method: "POST", body }),
   changeRole: (username, role) =>
     request(`/auth/users/${encodeURIComponent(username)}/role`, {
@@ -124,7 +130,13 @@ export const api = {
     }),
 
   // --- departments ---
-  listDepartments: () => request("/departments"),
+  listDepartments: (params) => {
+    const clean = Object.fromEntries(
+      Object.entries(params || {}).filter(([_, v]) => v != null && v !== "")
+    );
+    const q = new URLSearchParams(clean).toString();
+    return request(`/departments${q ? `?${q}` : ""}`);
+  },
   getDepartment: (id) => request(`/departments/${id}`),
   createDepartment: (body) => request("/departments", { method: "POST", body }),
   updateDepartment: (id, body) => request(`/departments/${id}`, { method: "PUT", body }),
@@ -133,7 +145,12 @@ export const api = {
     request("/departments/bulk-create", { method: "POST", body: { departments } }),
 
   // --- employees ---
-  listEmployees: (params) => request(`/employees?${new URLSearchParams(params)}`),
+  listEmployees: (params) => {
+    const clean = Object.fromEntries(
+      Object.entries(params || {}).filter(([_, v]) => v != null && v !== "")
+    );
+    return request(`/employees?${new URLSearchParams(clean)}`);
+  },
   getEmployee: (id) => request(`/employees/${id}`),
   createEmployee: (body) => request("/employees", { method: "POST", body }),
   updateEmployee: (id, body) => request(`/employees/${id}`, { method: "PATCH", body }),
@@ -158,7 +175,13 @@ export const api = {
   bulkIncrementSalary: (body) =>
     request("/employees/salary/bulk-increment", { method: "POST", body }),
   getPayrollSummary: () => request("/employees/salary/summary"),
-  salaryHistory: (id) => request(`/employees/${id}/salary-history`),
+  salaryHistory: (id, params) => {
+    const clean = Object.fromEntries(
+      Object.entries(params || {}).filter(([_, v]) => v != null && v !== "")
+    );
+    const q = new URLSearchParams(clean).toString();
+    return request(`/employees/${id}/salary-history${q ? `?${q}` : ""}`);
+  },
 
   // --- excel import & export ---
   uploadEmployeesExcel: async (file) => {
@@ -212,8 +235,14 @@ export const api = {
   },
 
   downloadEmployeeTemplate: () => `${BASE_URL}/employees/template`,
-  exportEmployeesUrl: (include_inactive = false) =>
-    `${BASE_URL}/employees/export?include_inactive=${include_inactive}`,
+  exportEmployeesUrl: (params = {}) => {
+    if (typeof params === "boolean") {
+      return `${BASE_URL}/employees/export?include_inactive=${params}`;
+    }
+    const clean = Object.fromEntries(
+      Object.entries(params || {}).filter(([_, v]) => v != null && v !== "")
+    );
+    const q = new URLSearchParams(clean).toString();
+    return `${BASE_URL}/employees/export${q ? `?${q}` : ""}`;
+  },
 };
-
-

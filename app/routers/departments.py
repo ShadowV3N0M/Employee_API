@@ -1,6 +1,6 @@
-"""Department management router."""
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -98,12 +98,30 @@ def bulk_create_departments(
 
 @router.get("")
 def list_departments(
+    search: Optional[str] = None,
+    min_budget: Optional[float] = None,
+    max_budget: Optional[float] = None,
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user)
 ):
-    """Any authenticated user. Retrieve all company departments."""
+    """Any authenticated user. Retrieve company departments with optional filtering."""
     try:
-        return db.query(DepartmentDB).all()
+        query = db.query(DepartmentDB)
+
+        if search and search.strip():
+            s = search.strip()
+            conds = [DepartmentDB.Dept_Name.ilike(f"%{s}%")]
+            if s.isdigit():
+                conds.append(DepartmentDB.Dept_ID == int(s))
+            query = query.filter(or_(*conds))
+
+        if min_budget is not None:
+            query = query.filter(DepartmentDB.Budget >= min_budget)
+
+        if max_budget is not None:
+            query = query.filter(DepartmentDB.Budget <= max_budget)
+
+        return query.order_by(DepartmentDB.Dept_ID.asc()).all()
     except SQLAlchemyError as e:
         raise HTTPException(
             status_code=500, detail=f"Database error: {str(e)}")

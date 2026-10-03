@@ -2,8 +2,10 @@
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -267,12 +269,33 @@ def reset_password(
 
 @router.get("/users")
 def list_users(
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    is_active: Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(require_admin)
 ):
-    """Admin only. List all users without exposing password hashes."""
+    """Admin only. List all users with optional filtering by query, role, and active status."""
     try:
-        users = db.query(UserDB).order_by(UserDB.id).all()
+        query = db.query(UserDB)
+
+        if search and search.strip():
+            s = search.strip()
+            conds = [
+                UserDB.username.ilike(f"%{s}%"),
+                UserDB.email.ilike(f"%{s}%")
+            ]
+            if s.isdigit():
+                conds.append(UserDB.id == int(s))
+            query = query.filter(or_(*conds))
+
+        if role and role.strip() and role.strip().lower() != "all":
+            query = query.filter(UserDB.role == role.strip().lower())
+
+        if is_active is not None:
+            query = query.filter(UserDB.is_active == is_active)
+
+        users = query.order_by(UserDB.id.asc()).all()
         return [
             {"id": u.id, "username": u.username, "email": u.email,
              "role": u.role, "is_active": u.is_active}

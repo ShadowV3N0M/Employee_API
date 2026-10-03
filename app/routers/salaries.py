@@ -1,4 +1,4 @@
-"""Salary management, bulk adjustments, and payroll analytics router."""
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -260,10 +260,13 @@ def increment_employee_salary(
 @router.get("/{emp_id}/salary-history")
 def salary_history(
     emp_id: int,
+    changed_by: Optional[str] = None,
+    min_salary: Optional[float] = None,
+    max_salary: Optional[float] = None,
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(require_manager_or_admin)
 ):
-    """Fetch salary change logs for a specific employee."""
+    """Fetch salary change logs for a specific employee with optional filtering."""
     try:
         employee = db.query(EmployeeDB).filter(
             EmployeeDB.Emp_ID == emp_id).first()
@@ -271,10 +274,20 @@ def salary_history(
         if employee is None:
             raise HTTPException(status_code=404, detail="Employee not found")
 
-        history = db.query(SalaryHistoryDB).filter(
+        query = db.query(SalaryHistoryDB).filter(
             SalaryHistoryDB.Emp_ID == emp_id
-        ).order_by(SalaryHistoryDB.changed_at).all()
+        )
 
+        if changed_by and changed_by.strip():
+            query = query.filter(SalaryHistoryDB.changed_by.ilike(f"%{changed_by.strip()}%"))
+
+        if min_salary is not None:
+            query = query.filter(SalaryHistoryDB.new_salary >= min_salary)
+
+        if max_salary is not None:
+            query = query.filter(SalaryHistoryDB.new_salary <= max_salary)
+
+        history = query.order_by(SalaryHistoryDB.changed_at.desc()).all()
         return history
 
     except HTTPException:

@@ -57,7 +57,14 @@ export default function ExcelImportModal({ onClose, onSuccess }) {
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         {/* Mode Selector Tabs */}
-        <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid #e2e8f0", paddingBottom: "10px" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            borderBottom: "1px solid var(--border)",
+            paddingBottom: "10px",
+          }}
+        >
           <button
             type="button"
             className={`btn ${mode === "import" ? "primary" : "ghost"}`}
@@ -73,8 +80,12 @@ export default function ExcelImportModal({ onClose, onSuccess }) {
           </button>
           <button
             type="button"
-            className={`btn ${mode === "delete" ? "primary" : "ghost"}`}
-            style={{ fontSize: "13px", padding: "6px 14px", color: mode === "delete" ? "#fff" : "#dc2626" }}
+            className={`btn ${mode === "delete" ? "danger" : "ghost"}`}
+            style={{
+              fontSize: "13px",
+              padding: "6px 14px",
+              color: mode === "delete" ? "#fff" : "var(--danger)",
+            }}
             onClick={() => {
               setMode("delete");
               setFile(null);
@@ -87,30 +98,82 @@ export default function ExcelImportModal({ onClose, onSuccess }) {
         </div>
 
         {mode === "import" ? (
-          <div style={{ background: "var(--bg-subtle, #f8fafc)", padding: "12px", borderRadius: "6px", fontSize: "13px" }}>
-            <strong>Supported Columns:</strong>
-            <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-              <li><code>F_Name</code>, <code>L_Name</code>, <code>Salary</code> (Required)</li>
-              <li><code>Department</code> (e.g. "Engineering") or <code>Dept_ID</code> (Required)</li>
-              <li><code>Address</code>, <code>Emp_ID</code>, <code>Email</code>, <code>Joining_Date</code> (Optional)</li>
+          <div
+            style={{
+              background: "var(--surface-alt)",
+              border: "1px solid var(--border)",
+              padding: "14px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              color: "var(--text)",
+            }}
+          >
+            <strong style={{ color: "var(--text-heading)", display: "block", marginBottom: "6px" }}>
+              Supported Columns:
+            </strong>
+            <ul style={{ margin: "0 0 0 18px", padding: 0, lineHeight: 1.6 }}>
+              <li>
+                <code>F_Name</code>, <code>L_Name</code>, <code>Salary</code>{" "}
+                <span style={{ color: "var(--danger)", fontSize: "11px", fontWeight: "600" }}>
+                  (Required)
+                </span>
+              </li>
+              <li>
+                <code>Department</code> (e.g. "Engineering") or <code>Dept_ID</code>{" "}
+                <span style={{ color: "var(--danger)", fontSize: "11px", fontWeight: "600" }}>
+                  (Required)
+                </span>
+              </li>
+              <li>
+                <code>Address</code>, <code>Emp_ID</code>, <code>Email</code>, <code>Joining_Date</code>{" "}
+                <span style={{ color: "var(--muted)", fontSize: "11px" }}>(Optional)</span>
+              </li>
             </ul>
-            <div style={{ marginTop: "10px" }}>
+            <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed var(--border)" }}>
               <a
                 href={api.downloadEmployeeTemplate()}
                 download="employee_template.csv"
-                style={{ color: "#2563eb", textDecoration: "underline", fontSize: "12px", fontWeight: "bold" }}
+                className="link"
+                style={{
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  textDecoration: "none",
+                }}
               >
                 📥 Download Sample CSV Template
               </a>
             </div>
           </div>
         ) : (
-          <div style={{ background: "#fef2f2", border: "1px solid #fee2e2", padding: "12px", borderRadius: "6px", fontSize: "13px", color: "#991b1b" }}>
-            <strong>Bulk Deletion Guide:</strong>
-            <p style={{ margin: "6px 0 8px 0" }}>
+          <div
+            style={{
+              background: "var(--danger-bg)",
+              border: "1px solid var(--danger-border)",
+              padding: "14px",
+              borderRadius: "8px",
+              fontSize: "13px",
+              color: "var(--danger-text)",
+            }}
+          >
+            <strong style={{ color: "var(--danger)", display: "block", marginBottom: "4px" }}>
+              Bulk Deletion Guide:
+            </strong>
+            <p style={{ margin: "0 0 10px 0", color: "var(--text)", lineHeight: 1.5 }}>
               Upload a spreadsheet or CSV containing an <code>Emp_ID</code> or <code>Email</code> column. All matching employee records will be processed.
             </p>
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "bold", cursor: "pointer", color: "#b91c1c" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: "600",
+                cursor: "pointer",
+                color: "var(--danger)",
+              }}
+            >
               <input
                 type="checkbox"
                 checked={hardDelete}
@@ -125,7 +188,16 @@ export default function ExcelImportModal({ onClose, onSuccess }) {
 
         {!result ? (
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <div style={{ border: "2px dashed #cbd5e1", borderRadius: "8px", padding: "20px", textAlign: "center" }}>
+            <div
+              style={{
+                border: "2px dashed var(--border)",
+                borderRadius: "10px",
+                padding: "24px 20px",
+                textAlign: "center",
+                background: "var(--surface-alt)",
+                transition: "border-color 0.2s ease, background-color 0.2s ease",
+              }}
+            >
               <input
                 type="file"
                 id="excelFileInput"
@@ -139,18 +211,28 @@ export default function ExcelImportModal({ onClose, onSuccess }) {
                 style={{
                   cursor: "pointer",
                   display: "inline-block",
-                  padding: "8px 16px",
-                  background: mode === "delete" ? "#dc2626" : "#2563eb",
+                  padding: "9px 18px",
+                  background: mode === "delete" ? "var(--danger)" : "var(--primary)",
                   color: "#fff",
-                  borderRadius: "4px",
-                  fontWeight: "bold",
+                  borderRadius: "8px",
+                  fontWeight: "600",
                   fontSize: "14px",
+                  transition: "opacity 0.15s ease",
                 }}
               >
                 Choose {mode === "delete" ? "Deletion" : "Employee"} File (.xlsx / .csv)
               </label>
-              <div style={{ marginTop: "10px", fontSize: "13px", color: file ? "#0f172a" : "#64748b" }}>
-                {file ? `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)` : "No file selected"}
+              <div
+                style={{
+                  marginTop: "12px",
+                  fontSize: "13px",
+                  color: file ? "var(--text)" : "var(--muted)",
+                  fontWeight: file ? "600" : "normal",
+                }}
+              >
+                {file
+                  ? `📄 Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`
+                  : "No file selected"}
               </div>
             </div>
 
@@ -162,15 +244,14 @@ export default function ExcelImportModal({ onClose, onSuccess }) {
                 type="submit"
                 className={`btn ${mode === "delete" ? "danger" : "primary"}`}
                 disabled={!file || loading}
-                style={mode === "delete" ? { background: "#dc2626", color: "#fff" } : {}}
               >
                 {loading
                   ? "Processing File..."
                   : mode === "delete"
-                    ? hardDelete
-                      ? "Execute Hard Delete"
-                      : "Execute Bulk Deactivate"
-                    : "Upload & Import"}
+                  ? hardDelete
+                    ? "Execute Hard Delete"
+                    : "Execute Bulk Deactivate"
+                  : "Upload & Import"}
               </button>
             </div>
           </form>
@@ -182,13 +263,33 @@ export default function ExcelImportModal({ onClose, onSuccess }) {
 
             {result.errors && result.errors.length > 0 && (
               <div>
-                <strong style={{ fontSize: "13px", color: "#dc2626" }}>
+                <strong style={{ fontSize: "13px", color: "var(--danger)" }}>
                   Skipped Rows ({result.errors.length}):
                 </strong>
-                <div style={{ maxHeight: "150px", overflowY: "auto", border: "1px solid #fee2e2", borderRadius: "4px", marginTop: "6px", background: "#fef2f2", padding: "8px", fontSize: "12px" }}>
+                <div
+                  style={{
+                    maxHeight: "150px",
+                    overflowY: "auto",
+                    border: "1px solid var(--danger-border)",
+                    borderRadius: "8px",
+                    marginTop: "6px",
+                    background: "var(--danger-bg)",
+                    padding: "8px 12px",
+                    fontSize: "12px",
+                    color: "var(--text)",
+                  }}
+                >
                   {result.errors.map((err, idx) => (
-                    <div key={idx} style={{ padding: "3px 0", borderBottom: "1px solid #fecaca" }}>
-                      Row {err.row}{err.emp_id ? ` (ID: ${err.emp_id})` : ""}: <strong>{err.error}</strong>
+                    <div
+                      key={idx}
+                      style={{
+                        padding: "5px 0",
+                        borderBottom:
+                          idx === result.errors.length - 1 ? "none" : "1px solid var(--danger-border)",
+                      }}
+                    >
+                      Row {err.row}
+                      {err.emp_id ? ` (ID: ${err.emp_id})` : ""}: <strong>{err.error}</strong>
                     </div>
                   ))}
                 </div>

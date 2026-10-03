@@ -20,8 +20,8 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
         title="Employee Management API",
-        description="A secure FastAPI application for managing employees and departments.",
-        version="2.1.0",
+        description="A secure API application for managing employees and departments.",
+        version="2.1.1",
     )
 
     # Attach rate limiter
@@ -51,8 +51,8 @@ def create_app() -> FastAPI:
         """Redirect root URL to interactive documentation."""
         return RedirectResponse(url="/docs")
 
-
     # Startup event: create tables & auto-migrate schema
+
     @app.on_event("startup")
     def on_startup():
         Base.metadata.create_all(bind=engine)

@@ -20,11 +20,19 @@ export default function Employees() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("Emp_ID");
   const [order, setOrder] = useState("asc");
-  const [showInactive, setShowInactive] = useState(false);
+
+  // Multi-field filters
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedDept, setSelectedDept] = useState("");
+  const [statusFilter, setStatusFilter] = useState("active"); // "active" | "inactive" | "all"
+  const [minSalary, setMinSalary] = useState("");
+  const [maxSalary, setMaxSalary] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [modal, setModal] = useState(null); // { type: "form" | "salary" | "history" | "excel" | "detail", employee }
+  const [modal, setModal] = useState(null); // { type: "detail" | "form" | "salary" | "history" | "excel", employee }
   const [reloadKey, setReloadKey] = useState(0);
 
   const reload = () => setReloadKey((k) => k + 1);
@@ -40,22 +48,37 @@ export default function Employees() {
     [departments]
   );
 
+  // Debounce search text input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Load employees whenever pagination, sorting, or filters change
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError("");
 
+    const params = {
+      page,
+      limit: PAGE_SIZE,
+      sort_by: sortBy,
+      order,
+      search: debouncedSearch.trim() || undefined,
+      dept_id: selectedDept ? Number(selectedDept) : undefined,
+      status: privileged ? statusFilter : "active",
+      min_salary: privileged && minSalary !== "" ? Number(minSalary) : undefined,
+      max_salary: privileged && maxSalary !== "" ? Number(maxSalary) : undefined,
+    };
+
     api
-      .listEmployees({
-        page,
-        limit: PAGE_SIZE,
-        sort_by: sortBy,
-        order,
-        include_inactive: showInactive,
-      })
+      .listEmployees(params)
       .then((res) => {
         if (cancelled) return;
-        // Deactivating the last row of the last page leaves it empty: step back
+        // If current page is empty after filtering or deactivating, step back
         if (res.items.length === 0 && page > 1) setPage(page - 1);
         else setData(res);
       })
@@ -65,7 +88,18 @@ export default function Employees() {
     return () => {
       cancelled = true;
     };
-  }, [page, sortBy, order, showInactive, reloadKey]);
+  }, [
+    page,
+    sortBy,
+    order,
+    debouncedSearch,
+    selectedDept,
+    statusFilter,
+    minSalary,
+    maxSalary,
+    privileged,
+    reloadKey,
+  ]);
 
   function toggleSort(field) {
     if (sortBy === field) setOrder(order === "asc" ? "desc" : "asc");
@@ -99,6 +133,38 @@ export default function Employees() {
     reload();
   }
 
+  // Active filter count and reset
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchTerm.trim()) count++;
+    if (selectedDept) count++;
+    if (privileged && statusFilter !== "active") count++;
+    if (privileged && minSalary !== "") count++;
+    if (privileged && maxSalary !== "") count++;
+    return count;
+  }, [searchTerm, selectedDept, statusFilter, minSalary, maxSalary, privileged]);
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setDebouncedSearch("");
+    setSelectedDept("");
+    setStatusFilter("active");
+    setMinSalary("");
+    setMaxSalary("");
+    setPage(1);
+  };
+
+  const exportParams = useMemo(
+    () => ({
+      search: debouncedSearch.trim() || undefined,
+      dept_id: selectedDept ? Number(selectedDept) : undefined,
+      status: privileged ? statusFilter : "active",
+      min_salary: privileged && minSalary !== "" ? Number(minSalary) : undefined,
+      max_salary: privileged && maxSalary !== "" ? Number(maxSalary) : undefined,
+    }),
+    [debouncedSearch, selectedDept, statusFilter, minSalary, maxSalary, privileged]
+  );
+
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
   const columnCount = privileged ? 8 : 6;
 
@@ -118,19 +184,6 @@ export default function Employees() {
 
         <div className="toolbar">
           {privileged && (
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={showInactive}
-                onChange={(e) => {
-                  setShowInactive(e.target.checked);
-                  setPage(1);
-                }}
-              />
-              Show inactive
-            </label>
-          )}
-          {privileged && (
             <button className="btn primary" onClick={() => setModal({ type: "form", employee: null })}>
               + Add employee
             </button>
@@ -141,10 +194,11 @@ export default function Employees() {
             </button>
           )}
           <a
-            href={api.exportEmployeesUrl(showInactive)}
+            href={api.exportEmployeesUrl(exportParams)}
             download="employees.csv"
             className="btn ghost"
             style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
+            title="Export currently filtered employees as CSV"
           >
             📤 Export CSV
           </a>
@@ -157,6 +211,187 @@ export default function Employees() {
         </div>
       )}
       {error && <div className="alert error">{error}</div>}
+
+      {/* Multi-field Table Filter Bar */}
+      <div className="filter-card">
+        <div className="filter-bar">
+          <div className="filter-group lg">
+            <span className="filter-label">🔍 Search</span>
+            <input
+              type="search"
+              className="filter-input"
+              placeholder="Search by name, email, or ID…"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+
+          <div className="filter-group">
+            <span className="filter-label">🏢 Department</span>
+            <select
+              className="filter-select"
+              value={selectedDept}
+              onChange={(e) => {
+                setSelectedDept(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Departments</option>
+              {departments.map((d) => (
+                <option key={d.Dept_ID} value={d.Dept_ID}>
+                  {d.Dept_Name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {privileged && (
+            <div className="filter-group">
+              <span className="filter-label">⚡ Status</span>
+              <select
+                className="filter-select"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="active">Active Only</option>
+                <option value="inactive">Inactive Only</option>
+                <option value="all">All (Active & Inactive)</option>
+              </select>
+            </div>
+          )}
+
+          {privileged && (
+            <div className="filter-group sm">
+              <span className="filter-label">💵 Min Salary</span>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                className="filter-input"
+                placeholder="Min $"
+                value={minSalary}
+                onChange={(e) => {
+                  setMinSalary(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+          )}
+
+          {privileged && (
+            <div className="filter-group sm">
+              <span className="filter-label">💵 Max Salary</span>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                className="filter-input"
+                placeholder="Max $"
+                value={maxSalary}
+                onChange={(e) => {
+                  setMaxSalary(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+          )}
+
+          <div className="filter-actions">
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={clearFilters}
+              disabled={activeFilterCount === 0}
+              title="Reset all filters"
+            >
+              ✕ Reset Filters
+              {activeFilterCount > 0 && (
+                <span className="filter-badge-active">{activeFilterCount}</span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {activeFilterCount > 0 && (
+          <div className="filter-summary">
+            <div className="filter-chips">
+              <span className="small muted">Active filters:</span>
+              {searchTerm.trim() && (
+                <span className="filter-chip">
+                  Search: "{searchTerm.trim()}"
+                  <button
+                    className="filter-chip-remove"
+                    title="Remove search filter"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setDebouncedSearch("");
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {selectedDept && (
+                <span className="filter-chip">
+                  Dept: {deptName[selectedDept] || selectedDept}
+                  <button
+                    className="filter-chip-remove"
+                    title="Remove department filter"
+                    onClick={() => setSelectedDept("")}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {privileged && statusFilter !== "active" && (
+                <span className="filter-chip">
+                  Status: {statusFilter === "all" ? "All" : "Inactive Only"}
+                  <button
+                    className="filter-chip-remove"
+                    title="Reset to Active Only"
+                    onClick={() => setStatusFilter("active")}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {privileged && minSalary !== "" && (
+                <span className="filter-chip">
+                  Min: ${Number(minSalary).toLocaleString()}
+                  <button
+                    className="filter-chip-remove"
+                    title="Remove minimum salary filter"
+                    onClick={() => setMinSalary("")}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+              {privileged && maxSalary !== "" && (
+                <span className="filter-chip">
+                  Max: ${Number(maxSalary).toLocaleString()}
+                  <button
+                    className="filter-chip-remove"
+                    title="Remove maximum salary filter"
+                    onClick={() => setMaxSalary("")}
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </div>
+            <span className="small muted">
+              Showing {data.items.length} of {data.total} matching records
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className="card table-wrap">
         <table>
@@ -181,7 +416,18 @@ export default function Employees() {
             )}
 
             {!loading && data.items.length === 0 && !error && (
-              <tr><td colSpan={columnCount} className="muted center">No employees to show.</td></tr>
+              <tr>
+                <td colSpan={columnCount} className="muted center" style={{ padding: "30px 10px" }}>
+                  No employees matched the selected filters.
+                  {activeFilterCount > 0 && (
+                    <div style={{ marginTop: "8px" }}>
+                      <button className="link" onClick={clearFilters}>
+                        Clear filters to see all employees
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
             )}
 
             {data.items.map((emp) => (
@@ -190,7 +436,6 @@ export default function Employees() {
                 className={`clickable-row ${emp.is_active ? "" : "inactive"}`}
                 onClick={() => setModal({ type: "detail", employee: emp })}
                 title="Click to view full employee profile"
-                style={{ cursor: "pointer" }}
               >
                 <td>{emp.Emp_ID}</td>
                 <td><strong>{emp.F_Name} {emp.L_Name}</strong></td>

@@ -721,6 +721,27 @@ git reset --soft HEAD~1
 - **Owl Waking Up (Dark Mode):** Animated nocturnal owl perched on a tree branch wakes with sleepy blinks, dilating glowing irises, perked ear tufts, inquisitive head-tilt, sparkling stars, and *"Night Owl Mode! 🌙"* badge.
 - **Floating Stage:** Positioned in bottom-right corner with `pointer-events: none` and 2.8s auto-dismiss.
 
+### 12. Multi-Field Table Filtration Across All Database Entities (Backend & Frontend)
+- **Employee Roster Filtration (`GET /employees` & `GET /employees/export`):**
+  - **Full-Text Multi-Field Search:** Searches across First Name, Last Name, Full Name, Email, and exact numeric Employee ID (`search`).
+  - **Department Scope Filter:** Filter employees by assigned department ID (`dept_id`).
+  - **Account Status Filter:** Filter by `status="active"`, `status="inactive"`, or `status="all"` (with strict RBAC: standard users are prevented from viewing or filtering inactive employees).
+  - **Compensation Range Filters:** Filter by `min_salary` and `max_salary` (restricted to `manager` and `admin` roles; standard users receive HTTP 403 Forbidden).
+  - **Synchronized CSV Roster Export:** The `GET /employees/export` endpoint accepts the exact same filter criteria, allowing users to export the filtered employee roster directly to CSV.
+- **Department Table Filtration (`GET /departments`):**
+  - Query filtering by department name or numeric Dept ID (`search`).
+  - Budget boundaries filtering with `min_budget` and `max_budget`.
+- **User Accounts Filtration (`GET /auth/users`):**
+  - Search by username, email, or numeric User ID (`search`).
+  - Role dropdown filter (`role="admin"|"manager"|"user"`).
+  - Account status filter (`is_active=true|false`).
+- **Salary History Audit Filtration (`GET /employees/{emp_id}/salary-history`):**
+  - Search revision logs by approving administrator/modifier (`changed_by`).
+  - Salary range filtering (`min_salary`, `max_salary`).
+- **Unified Frontend Filter Bar Component System:**
+  - Modern, responsive filter cards placed directly above all data tables (`Employees.jsx`, `Departments.jsx`, `Users.jsx`, and `HistoryModal.jsx`).
+  - 300ms debounced text search, clean dropdown selectors, active filter badge counters, interactive filter chip tags with one-click individual removals, and a master "Reset Filters" action.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -733,8 +754,9 @@ git reset --soft HEAD~1
 - [x] **Dark / Light Theme Toggle** - Theme selector using CSS custom properties, persistent state & system media query
 - [x] **Rooster & Owl Waking-Up Mascots** - Animated sunrise rooster (light) and twilight owl (dark) with interactive stage choreography
 - [x] **3D Card Flip Animation** - Interactive 3D perspective flip transition between Sign In and Registration forms with accessibility controls
+- [x] **Multi-Field Table Filtration Across All Database Entities** - Full search, department, role, status, and compensation boundaries across Employee, Department, User, and Salary History tables with synchronized CSV export
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 
 ---
-*Last updated: 2026-10-01*
+*Last updated: 2026-10-03*
