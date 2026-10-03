@@ -44,3 +44,12 @@ class BulkSalaryIncrement(BaseModel):
     dept_id: Optional[int] = None           # Optional filter by department ID
     # Optional filter by specific employee IDs
     emp_ids: Optional[list[int]] = None
+
+
+class SalaryCalculateRequest(BaseModel):
+    annual_ctc: float
+    is_metro: bool = False
+    pf_capped: bool = True
+    regime: str = "new"  # "new" or "old"
+    deductions_80c: float = 150000.0
+    deductions_80d: float = 25000.0

@@ -177,6 +177,8 @@ export const api = {
   bulkIncrementSalary: (body) =>
     request("/employees/salary/bulk-increment", { method: "POST", body }),
   getPayrollSummary: () => request("/employees/salary/summary"),
+  calculateSalary: (body) => request("/employees/salary/calculate", { method: "POST", body }),
+  getMySalaryProfile: () => request("/employees/salary/my-profile"),
   salaryHistory: (id, params) => {
     const clean = Object.fromEntries(
       Object.entries(params || {}).filter(([_, v]) => v != null && v !== "")

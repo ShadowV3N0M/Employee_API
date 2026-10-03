@@ -166,6 +166,8 @@ The API enforces strict Role-Based Access Control across three user roles: **`us
 | `POST` | `/employees/{emp_id}/salary/increment` | ❌ | ❌ | ❌ | ✅ | Apply a salary raise or cut and log change |
 | `POST` | `/employees/salary/bulk-increment` | ❌ | ❌ | ❌ | ✅ | Bulk salary raise (% or fixed) by department or IDs |
 | `GET` | `/employees/salary/summary` | ❌ | ❌ | ✅ | ✅ | View company-wide and department payroll analytics |
+| `POST` | `/employees/salary/calculate` | ❌ | ✅ | ✅ | ✅ | Calculate gross, take-home pay, EPF, PT, ESI & TDS under New & Old tax regimes |
+| `GET` | `/employees/salary/my-profile` | ❌ | ✅ | ✅ | ✅ | Fetch logged-in employee's registered salary for 1-click loading |
 | `PUT` | `/auth/change-password` | ❌ | ✅ | ✅ | ✅ | Change own account password (requires old password) |
 | `GET` | `/auth/users` | ❌ | ❌ | ❌ | ✅ | List all users with their roles (no password hashes) |
 | `POST` | `/auth/users` | ❌ | ❌ | ❌ | ✅ | Create a new user with designated role (`user`, `manager`, `admin`) |
@@ -781,6 +783,24 @@ git reset --soft HEAD~1
   - Interactive **Edit**, **History**, and **Delete** action buttons on table rows (visible exclusively to `admin`).
   - Global "📜 Audit History" header action for inspecting company-wide department logs.
 
+### 15. Employee Salary & Take-Home Pay Calculator (`POST /employees/salary/calculate`, `GET /employees/salary/my-profile`, `SalaryCalculator.jsx`)
+- **Dual Tax Regime Engine (Indian Income Tax):**
+  - **New Tax Regime (FY 2024-25 / 2025-26):** Standard deduction ₹75,000, updated slab brackets (0-3L nil, 3-7L 5%, 7-10L 10%, 10-12L 15%, 12-15L 20%, >15L 30%), Section 87A rebate (tax-free up to ₹7,00,000 net taxable income), and 4% Health & Education cess.
+  - **Old Tax Regime:** Standard deduction ₹50,000, 80C deduction (up to ₹1,50,000), 80D medical insurance deduction (up to ₹25,000), old tax slabs, and Section 87A rebate up to ₹5,00,000.
+  - **Side-by-Side Tax Comparison Banner:** Highlights which tax regime saves more money and exact annual savings.
+- **Accurate Indian Statutory Payroll Deductions:**
+  - **Employee Provident Fund (EPF):** 12% of Basic pay with toggle for statutory wage ceiling cap (₹1,800/month or ₹21,600/year) vs. uncapped 12%.
+  - **Professional Tax (PT):** Standard ₹200/month (₹2,500/year with Feb adjustment).
+  - **Employee State Insurance (ESI):** 0.75% of Gross pay for employees with Gross ≤ ₹21,000/month (exempt above ₹21,000).
+- **Earnings Breakdown:**
+  - Configurable Basic Pay (50% of CTC), House Rent Allowance (HRA 50% for Metro cities, 40% for Non-Metro), Conveyance Allowance (fixed ₹1,600/month), Medical Allowance (fixed ₹1,250/month), and balancing Special Allowance.
+- **Employee Accessibility & Self-Service:**
+  - Unrestricted route accessible to all authenticated roles (`user`, `manager`, `admin`).
+  - **"Load My Salary" Profile Integration (`GET /employees/salary/my-profile`):** Authenticated employees can click a single button to auto-fill their annual CTC directly from their registered employee record on file.
+  - Interactive slider + quick preset chips (₹3.6 LPA, ₹6.0 LPA, ₹9.0 LPA, ₹12.0 LPA, ₹18.0 LPA, ₹25.0 LPA, ₹35.0 LPA).
+  - Dual table views: toggle between Monthly and Annual breakdown.
+  - **Simulated Payslip Voucher Preview Modal:** Formatted company payslip voucher with employee name, position, earnings/deductions breakdown, and printable styling (`window.print()`).
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -798,6 +818,7 @@ git reset --soft HEAD~1
 - [x] **User Profile & Account Dropdown Menu** - Topbar account menu with avatar, role badge, "Change Password" modal, and sign out
 - [x] **Analytics & Payroll Dashboard** - Visual KPI cards, department budget utilization progress bars, and breakdown tables for managers & admins
 - [x] **Admin Department Management & Budget Revision History** - Department name & budget allocation editing, automated revision audit trail, and safe deletion with employee assignment protection
+- [x] **Interactive Salary & Take-Home Pay Calculator** - Dual tax regime comparison (New vs. Old), statutory deductions (EPF, PT, ESI), "Load My Salary" profile integration, and printable payslip simulation preview
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 

@@ -131,6 +131,15 @@ export default function Layout() {
             <span className="sidebar-link-label">Departments</span>
           </NavLink>
 
+          <NavLink
+            to="/salary-calculator"
+            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            title="Salary & In-Hand Pay Calculator"
+          >
+            <span className="sidebar-link-icon">🧮</span>
+            <span className="sidebar-link-label">Salary Calculator</span>
+          </NavLink>
+
           {(user?.role === "manager" || user?.role === "admin") && (
             <NavLink
               to="/analytics"
@@ -218,6 +227,15 @@ export default function Layout() {
                     </div>
 
                     <div className="user-dropdown-body">
+                      <NavLink
+                        to="/salary-calculator"
+                        className="user-dropdown-item"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <span className="user-dropdown-item-icon">🧮</span>
+                        <span>Salary Calculator</span>
+                      </NavLink>
+
                       <button
                         type="button"
                         className="user-dropdown-item"

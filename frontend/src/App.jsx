@@ -7,6 +7,7 @@ import Employees from "./pages/Employees";
 import Departments from "./pages/Departments";
 import Analytics from "./pages/Analytics";
 import Users from "./pages/Users";
+import SalaryCalculator from "./pages/SalaryCalculator";
 
 // Guards a route: must be logged in, and (optionally) have one of `roles`.
 function RequireAuth({ roles, children }) {
@@ -34,6 +35,7 @@ export default function App() {
       >
         <Route path="/" element={<Employees />} />
         <Route path="/departments" element={<Departments />} />
+        <Route path="/salary-calculator" element={<SalaryCalculator />} />
         <Route
           path="/analytics"
           element={

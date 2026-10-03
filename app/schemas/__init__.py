@@ -13,6 +13,7 @@ from app.schemas.employee import (
     SalaryIncrement,
     BulkEmployeeDelete,
     BulkSalaryIncrement,
+    SalaryCalculateRequest,
 )
 from app.schemas.auth import (
     UserRegister,
@@ -37,6 +38,7 @@ __all__ = [
     "SalaryIncrement",
     "BulkEmployeeDelete",
     "BulkSalaryIncrement",
+    "SalaryCalculateRequest",
     "UserRegister",
     "UserCreateAdmin",
     "RoleUpdate",
