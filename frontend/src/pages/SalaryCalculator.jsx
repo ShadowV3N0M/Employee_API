@@ -17,6 +17,8 @@ const SALARY_PRESETS = [
 
 export default function SalaryCalculator() {
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const isPrivileged = isAdmin || user?.role === "manager";
 
   // Input states
   const [basis, setBasis] = useState("annual"); // "annual" | "monthly"
@@ -30,10 +32,21 @@ export default function SalaryCalculator() {
   // View mode for tables
   const [breakdownView, setBreakdownView] = useState("monthly"); // "monthly" | "annual"
 
-  // User profile salary state
+  // User personal profile salary state
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [myProfile, setMyProfile] = useState(null);
   const [profileMsg, setProfileMsg] = useState("");
+
+  // Admin employee roster inspection state
+  const [employeesList, setEmployeesList] = useState([]);
+  const [departmentsList, setDepartmentsList] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [showEmployeePicker, setShowEmployeePicker] = useState(false);
+  const [empSearch, setEmpSearch] = useState("");
+  const [empDeptFilter, setEmpDeptFilter] = useState("");
+  const [salaryActionMsg, setSalaryActionMsg] = useState("");
+  const [applyingSalary, setApplyingSalary] = useState(false);
 
   // Payslip simulation modal
   const [showPayslip, setShowPayslip] = useState(false);
@@ -50,7 +63,51 @@ export default function SalaryCalculator() {
       .catch(() => {});
   }, []);
 
+  // For Admin / Manager: Fetch all employees and departments
+  useEffect(() => {
+    if (isPrivileged) {
+      setLoadingEmployees(true);
+      Promise.all([
+        api.listEmployees({ limit: 200, status: "all" }),
+        api.listDepartments(),
+      ])
+        .then(([empRes, deptRes]) => {
+          setEmployeesList(empRes.items || []);
+          setDepartmentsList(deptRes || []);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingEmployees(false));
+    }
+  }, [isPrivileged]);
+
+  // Department name lookup map
+  const deptMap = useMemo(() => {
+    const map = {};
+    departmentsList.forEach((d) => {
+      map[d.Dept_ID] = d.Dept_Name;
+    });
+    return map;
+  }, [departmentsList]);
+
+  // Filtered employee list for admin picker modal
+  const filteredEmployees = useMemo(() => {
+    return employeesList.filter((emp) => {
+      if (empDeptFilter && emp.Dept_ID !== Number(empDeptFilter)) {
+        return false;
+      }
+      if (empSearch.trim()) {
+        const q = empSearch.toLowerCase().trim();
+        const fullName = `${emp.F_Name} ${emp.L_Name}`.toLowerCase();
+        const email = (emp.Email || "").toLowerCase();
+        const id = String(emp.Emp_ID);
+        return fullName.includes(q) || email.includes(q) || id.includes(q);
+      }
+      return true;
+    });
+  }, [employeesList, empDeptFilter, empSearch]);
+
   const handleLoadMySalary = () => {
+    setSelectedEmployee(null);
     if (myProfile && myProfile.salary) {
       setBasis("annual");
       setAmountInput(String(myProfile.salary));
@@ -84,6 +141,32 @@ export default function SalaryCalculator() {
           setTimeout(() => setProfileMsg(""), 5000);
         });
     }
+  };
+
+  const handleSelectEmployee = (emp) => {
+    setSelectedEmployee(emp);
+    setBasis("annual");
+    setAmountInput(String(emp.Salary || 0));
+    setShowEmployeePicker(false);
+    setProfileMsg(
+      `Loaded #${emp.Emp_ID} ${emp.F_Name} ${emp.L_Name}'s registered compensation (${formatMoney(emp.Salary)}) into calculator.`
+    );
+    setTimeout(() => setProfileMsg(""), 5000);
+  };
+
+  const handleResetToBase = () => {
+    if (selectedEmployee) {
+      setBasis("annual");
+      setAmountInput(String(selectedEmployee.Salary || 0));
+    }
+  };
+
+  const handleQuickRaise = (pct) => {
+    if (!selectedEmployee) return;
+    const baseSalary = Number(selectedEmployee.Salary) || 0;
+    const raised = Math.round(baseSalary * (1 + pct / 100));
+    setBasis("annual");
+    setAmountInput(String(raised));
   };
 
   // Compute values client-side in real time
@@ -132,7 +215,7 @@ export default function SalaryCalculator() {
     const newTaxable = Math.max(0, annualGross - newStdDeduction);
     let newTax = 0;
     if (newTaxable <= 700000) {
-      newTax = 0; // 87A rebate
+      newTax = 0; // Section 87A rebate
     } else {
       let rem = newTaxable;
       if (rem > 1500000) {
@@ -168,7 +251,7 @@ export default function SalaryCalculator() {
 
     let oldTax = 0;
     if (oldTaxable <= 500000) {
-      oldTax = 0; // 87A rebate
+      oldTax = 0; // Section 87A rebate
     } else {
       let rem = oldTaxable;
       if (rem > 1000000) {
@@ -233,20 +316,95 @@ export default function SalaryCalculator() {
     };
   }, [amountInput, basis, regime, isMetro, pfCapped, deductions80c, deductions80d]);
 
+  // Comparison delta if an employee is selected
+  const delta = useMemo(() => {
+    if (!selectedEmployee) return null;
+    const base = Number(selectedEmployee.Salary) || 0;
+    const current = calculation.annualCTC;
+    const diff = current - base;
+    const pct = base > 0 ? (diff / base) * 100 : 0;
+    return {
+      base,
+      current,
+      diff,
+      pct,
+      isModified: Math.abs(diff) >= 1,
+    };
+  }, [selectedEmployee, calculation.annualCTC]);
+
+  // Admin action: officially apply revised salary to employee
+  const handleApplySalaryToEmployee = async () => {
+    if (!isAdmin || !selectedEmployee) return;
+    const newSalary = calculation.annualCTC;
+    if (newSalary <= 0) {
+      alert("Salary must be greater than zero.");
+      return;
+    }
+    const confirmMsg = `Are you sure you want to officially update ${selectedEmployee.F_Name} ${selectedEmployee.L_Name}'s annual salary from ${formatMoney(selectedEmployee.Salary)} to ${formatMoney(newSalary)}?\n\nThis change will be permanently saved to the database and logged to the salary revision audit history.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setApplyingSalary(true);
+    try {
+      await api.setSalary(selectedEmployee.Emp_ID, newSalary);
+      setSelectedEmployee((prev) => ({ ...prev, Salary: newSalary }));
+      setSalaryActionMsg(
+        `✅ Successfully updated #${selectedEmployee.Emp_ID} ${selectedEmployee.F_Name} ${selectedEmployee.L_Name}'s official compensation to ${formatMoney(newSalary)}!`
+      );
+      // Refresh directory in background
+      api.listEmployees({ limit: 200, status: "all" }).then((res) => {
+        setEmployeesList(res.items || []);
+      });
+      setTimeout(() => setSalaryActionMsg(""), 6000);
+    } catch (err) {
+      setSalaryActionMsg(`❌ Failed to update salary: ${err.message}`);
+      setTimeout(() => setSalaryActionMsg(""), 6000);
+    } finally {
+      setApplyingSalary(false);
+    }
+  };
+
   const mult = breakdownView === "annual" ? 12 : 1;
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h2>Salary & In-Hand Pay Calculator</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <h2>Salary & In-Hand Pay Calculator</h2>
+            {isAdmin && <span className="badge role-admin">Admin Payroll Inspector</span>}
+          </div>
           <p className="muted">
-            Interactive payroll calculator for employees to estimate take-home pay, earnings
-            components, statutory deductions, and tax under New vs. Old Tax Regimes.
+            {isAdmin
+              ? "Inspect and calculate take-home pay for any employee in the company, model appraisal raises, and preview personalized payslips."
+              : "Interactive payroll calculator for employees to estimate take-home pay, statutory deductions, and tax liabilities under New vs. Old Tax Regimes."}
           </p>
         </div>
 
         <div className="toolbar">
+          {isPrivileged && (
+            <button
+              type="button"
+              className="btn primary"
+              onClick={() => setShowEmployeePicker(true)}
+              title="Search and select any employee in the company"
+            >
+              👥 {selectedEmployee ? "Switch Employee" : "Select Employee"}
+              {employeesList.length > 0 && (
+                <span
+                  style={{
+                    marginLeft: "6px",
+                    background: "rgba(255,255,255,0.25)",
+                    padding: "2px 7px",
+                    borderRadius: "10px",
+                    fontSize: "0.75rem",
+                  }}
+                >
+                  {employeesList.length}
+                </span>
+              )}
+            </button>
+          )}
+
           <button
             type="button"
             className="btn secondary"
@@ -256,9 +414,10 @@ export default function SalaryCalculator() {
           >
             👤 {loadingProfile ? "Loading…" : "Load My Salary"}
           </button>
+
           <button
             type="button"
-            className="btn primary"
+            className="btn ghost"
             onClick={() => setShowPayslip(true)}
             title="Preview estimated monthly payslip"
           >
@@ -267,9 +426,197 @@ export default function SalaryCalculator() {
         </div>
       </div>
 
+      {salaryActionMsg && <div className="alert success">{salaryActionMsg}</div>}
       {profileMsg && <div className="alert info">{profileMsg}</div>}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        {/* Selected Employee Active Profile Card (Admin / Manager) */}
+        {selectedEmployee && (
+          <div
+            className="card"
+            style={{
+              padding: "16px 20px",
+              background: "var(--surface)",
+              border: "2px solid var(--primary)",
+              borderRadius: "10px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "12px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    width: "46px",
+                    height: "46px",
+                    borderRadius: "50%",
+                    background: "var(--primary)",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    fontSize: "1.15rem",
+                    flexShrink: 0,
+                  }}
+                >
+                  {selectedEmployee.F_Name?.[0]}
+                  {selectedEmployee.L_Name?.[0]}
+                </div>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: "1.15rem", color: "var(--text)" }}>
+                      {selectedEmployee.F_Name} {selectedEmployee.L_Name}
+                    </strong>
+                    <span className="badge role-admin" style={{ fontSize: "0.75rem" }}>
+                      Emp ID: #{selectedEmployee.Emp_ID}
+                    </span>
+                    <span
+                      className={`badge ${selectedEmployee.is_active ? "ok" : "off"}`}
+                      style={{ fontSize: "0.75rem" }}
+                    >
+                      {selectedEmployee.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <div className="small muted" style={{ marginTop: "2px" }}>
+                    {deptMap[selectedEmployee.Dept_ID] || `Dept #${selectedEmployee.Dept_ID}`} ·{" "}
+                    {selectedEmployee.Email || "No email"} · Registered Base CTC:{" "}
+                    <strong style={{ color: "var(--ok)", fontSize: "0.95rem" }}>
+                      {formatMoney(selectedEmployee.Salary)} / yr
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  onClick={() => setShowEmployeePicker(true)}
+                  title="Choose a different employee"
+                >
+                  👥 Switch Employee
+                </button>
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  onClick={() => {
+                    setSelectedEmployee(null);
+                    setAmountInput("600000");
+                  }}
+                  title="Clear selected employee"
+                >
+                  ✕ Deselect
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Raise Scenarios & Delta Analysis */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "10px",
+                paddingTop: "12px",
+                borderTop: "1px dashed var(--border)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                <span className="small muted" style={{ fontWeight: 600 }}>
+                  Simulate Appraisal Raise:
+                </span>
+                <button
+                  type="button"
+                  className="btn small secondary"
+                  onClick={() => handleQuickRaise(5)}
+                  title="Simulate +5% Salary Increment"
+                >
+                  +5%
+                </button>
+                <button
+                  type="button"
+                  className="btn small secondary"
+                  onClick={() => handleQuickRaise(10)}
+                  title="Simulate +10% Salary Increment"
+                >
+                  +10%
+                </button>
+                <button
+                  type="button"
+                  className="btn small secondary"
+                  onClick={() => handleQuickRaise(15)}
+                  title="Simulate +15% Salary Increment"
+                >
+                  +15%
+                </button>
+                <button
+                  type="button"
+                  className="btn small secondary"
+                  onClick={() => handleQuickRaise(20)}
+                  title="Simulate +20% Salary Increment"
+                >
+                  +20%
+                </button>
+                {delta?.isModified && (
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    onClick={handleResetToBase}
+                    title="Reset back to base registered salary"
+                  >
+                    ↺ Reset to Base
+                  </button>
+                )}
+              </div>
+
+              {delta?.isModified && (
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      padding: "4px 10px",
+                      borderRadius: "6px",
+                      background: delta.diff >= 0 ? "var(--ok-bg)" : "var(--danger-bg)",
+                      color: delta.diff >= 0 ? "var(--ok-text)" : "var(--danger-text)",
+                      border: `1px solid ${delta.diff >= 0 ? "var(--ok-border)" : "var(--danger-border)"}`,
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {delta.diff >= 0 ? "▲ Projected Raise: +" : "▼ Projected Cut: "}
+                    {formatMoney(Math.abs(delta.diff))} ({delta.pct >= 0 ? "+" : ""}
+                    {delta.pct.toFixed(1)}%)
+                  </div>
+
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="btn small primary"
+                      onClick={handleApplySalaryToEmployee}
+                      disabled={applyingSalary}
+                      title="Officially apply this revised salary to the employee's permanent record"
+                    >
+                      {applyingSalary
+                        ? "Saving…"
+                        : `💾 Apply ${formatMoney(calculation.annualCTC)} to Employee`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Input & Parameters Card */}
         <div className="card" style={{ padding: "22px 24px" }}>
           <div
@@ -673,7 +1020,7 @@ export default function SalaryCalculator() {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-              gap: "24px",
+              gap: "20px",
             }}
           >
             {/* Earnings Column */}
@@ -690,7 +1037,7 @@ export default function SalaryCalculator() {
                   padding: "10px 16px",
                   borderBottom: "1px solid var(--border)",
                   fontWeight: 700,
-                  color: "var(--text-heading)",
+                  color: "var(--primary)",
                 }}
               >
                 Earnings (A)
@@ -832,6 +1179,129 @@ export default function SalaryCalculator() {
         </div>
       </div>
 
+      {/* Admin Employee Selector Modal */}
+      {showEmployeePicker && (
+        <Modal
+          title={`Employee Compensation Directory (${filteredEmployees.length} Available)`}
+          onClose={() => setShowEmployeePicker(false)}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <p className="small muted" style={{ margin: 0 }}>
+              Select any employee to load their registered compensation into the calculator, inspect
+              take-home pay, or model appraisal raises.
+            </p>
+
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <input
+                type="search"
+                placeholder="🔍 Search by name, ID, or email..."
+                value={empSearch}
+                onChange={(e) => setEmpSearch(e.target.value)}
+                style={{ flex: "1 1 200px" }}
+                autoFocus
+              />
+              <select
+                value={empDeptFilter}
+                onChange={(e) => setEmpDeptFilter(e.target.value)}
+                style={{ flex: "0 1 180px" }}
+              >
+                <option value="">All Departments</option>
+                {departmentsList.map((d) => (
+                  <option key={d.Dept_ID} value={d.Dept_ID}>
+                    {d.Dept_Name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div
+              style={{
+                maxHeight: "380px",
+                overflowY: "auto",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+              }}
+            >
+              {loadingEmployees ? (
+                <div style={{ padding: "30px", textAlign: "center" }} className="muted">
+                  Loading employees roster…
+                </div>
+              ) : filteredEmployees.length === 0 ? (
+                <div style={{ padding: "30px", textAlign: "center" }} className="muted">
+                  No employees found matching the search criteria.
+                </div>
+              ) : (
+                <table style={{ margin: 0, width: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Employee</th>
+                      <th>Department</th>
+                      <th className="num">Registered CTC</th>
+                      <th>Status</th>
+                      <th className="right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredEmployees.map((emp) => (
+                      <tr
+                        key={emp.Emp_ID}
+                        style={{
+                          cursor: "pointer",
+                          background:
+                            selectedEmployee?.Emp_ID === emp.Emp_ID
+                              ? "var(--surface-alt)"
+                              : undefined,
+                        }}
+                        onClick={() => handleSelectEmployee(emp)}
+                      >
+                        <td className="small muted">#{emp.Emp_ID}</td>
+                        <td>
+                          <strong>
+                            {emp.F_Name} {emp.L_Name}
+                          </strong>
+                          <div className="small muted">{emp.Email || "No email"}</div>
+                        </td>
+                        <td>{deptMap[emp.Dept_ID] || `#${emp.Dept_ID}`}</td>
+                        <td className="num font-mono" style={{ fontWeight: 600, color: "var(--ok)" }}>
+                          {formatMoney(emp.Salary)}
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${emp.is_active ? "ok" : "off"}`}
+                            style={{ fontSize: "0.75rem" }}
+                          >
+                            {emp.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </td>
+                        <td className="right">
+                          <button
+                            type="button"
+                            className="btn small primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectEmployee(emp);
+                            }}
+                          >
+                            🧮 Select
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="actions" style={{ marginTop: "4px" }}>
+              <button type="button" className="btn ghost" onClick={() => setShowEmployeePicker(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* Simulated Payslip Voucher Modal */}
       {showPayslip && (
         <Modal title="Estimated Monthly Payslip Simulation" onClose={() => setShowPayslip(false)}>
@@ -878,18 +1348,43 @@ export default function SalaryCalculator() {
             >
               <div>
                 <span className="muted">Employee Name:</span>{" "}
-                <strong>{myProfile?.name || user.username}</strong>
+                <strong>
+                  {selectedEmployee
+                    ? `${selectedEmployee.F_Name} ${selectedEmployee.L_Name}`
+                    : myProfile?.name || user.username}
+                </strong>
               </div>
               <div>
-                <span className="muted">Role / Position:</span> <strong>{user.role}</strong>
+                <span className="muted">Emp ID & Dept:</span>{" "}
+                <strong>
+                  {selectedEmployee
+                    ? `#${selectedEmployee.Emp_ID} · ${deptMap[selectedEmployee.Dept_ID] || `Dept #${selectedEmployee.Dept_ID}`}`
+                    : myProfile?.matched
+                    ? `#${myProfile.Emp_ID} · Dept #${myProfile.Dept_ID}`
+                    : user.role}
+                </strong>
+              </div>
+              <div>
+                <span className="muted">Official Email:</span>{" "}
+                <span style={{ wordBreak: "break-all" }}>
+                  {selectedEmployee
+                    ? selectedEmployee.Email || "—"
+                    : myProfile?.Email || user.email || `${user.username}@company.internal`}
+                </span>
               </div>
               <div>
                 <span className="muted">Selected Tax Regime:</span>{" "}
-                <strong>{regime === "new" ? "New Tax Regime" : "Old Tax Regime"}</strong>
+                <strong>{regime === "new" ? "New Tax Regime (FY 24-25)" : "Old Tax Regime"}</strong>
               </div>
               <div>
                 <span className="muted">PF Limit:</span>{" "}
-                <strong>{pfCapped ? "Capped (₹1,800)" : "Uncapped (12%)"}</strong>
+                <strong>{pfCapped ? "Capped (₹1,800/mo)" : "Uncapped (12%)"}</strong>
+              </div>
+              <div>
+                <span className="muted">Data Source:</span>{" "}
+                <span className="badge role-admin" style={{ fontSize: "0.75rem" }}>
+                  {selectedEmployee ? "Official Employee Record" : "Self Profile / Custom"}
+                </span>
               </div>
             </div>
 
