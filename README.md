@@ -142,8 +142,8 @@ The API enforces strict Role-Based Access Control across three user roles: **`us
 | `GET` | `/employees` | ❌ | ✅* | ✅ | ✅ | List employees (*Salary & Address hidden for `user`) |
 | `GET` | `/employees/{emp_id}` | ❌ | ✅* | ✅ | ✅ | Get employee details (*Salary & Address hidden for `user`) |
 | `POST` | `/employees` | ❌ | ❌ | ✅ | ✅ | Create an employee (with starting salary & auto-email) |
-| `PUT` | `/employees/{emp_id}` | ❌ | ❌ | ✅* | ✅ | Full update (*changing salary requires `admin`) |
-| `PATCH` | `/employees/{emp_id}` | ❌ | ❌ | ✅* | ✅ | Partial update (*changing salary requires `admin`) |
+| `PUT` | `/employees/{emp_id}` | ❌ | ❌ | ✅* | ✅ | Full update (*admin can edit all details: Name, Address, Salary, Email, Joining Date, Status; manager restricted to Name/Dept/Address) |
+| `PATCH` | `/employees/{emp_id}` | ❌ | ❌ | ✅* | ✅ | Partial update (*admin can edit all details: Name, Address, Salary, Email, Joining Date, Status; manager restricted to Name/Dept/Address) |
 | `GET` | `/employees/{emp_id}/salary-history` | ❌ | ❌ | ✅ | ✅ | View audit log of salary changes for an employee |
 | `POST` | `/departments` | ❌ | ❌ | ❌ | ✅ | Create a new department |
 | `DELETE` | `/employees/{emp_id}` | ❌ | ❌ | ❌ | ✅ | Deactivate employee (standard REST alias) |
@@ -801,6 +801,19 @@ git reset --soft HEAD~1
   - Dual table views: toggle between Monthly and Annual breakdown.
   - **Simulated Payslip Voucher Preview Modal:** Formatted company payslip voucher with employee name, position, earnings/deductions breakdown, and printable styling (`window.print()`).
 
+### 16. Comprehensive Admin Employee Details Editing (`PUT/PATCH /employees/{emp_id}`, `EmployeeForm.jsx`)
+- **Full Administrative Edit Authority:**
+  - System administrators have unrestricted access to edit **all** attributes of an employee record:
+    - **Personal & Contact:** First Name, Last Name, and Residential Address.
+    - **Organizational Placement:** Department (`Dept_ID`).
+    - **Official Company Email:** Directly editable with syntax validation and database uniqueness checks preventing conflicts with other staff members. Includes convenient "Auto-generate from Name" action.
+    - **Joining Date (`joining_date`):** Dedicated HTML5 date picker (`YYYY-MM-DD`). Automatically synchronized with `created_at` timestamp. Includes automatic database schema migration for `employee.joining_date` column with historical backfilling.
+    - **Compensation (`Salary`):** Fully editable by admin; automatically appends timestamped change entry to `salary_history` audit table.
+    - **Account Status (`is_active`):** Directly toggleable between Active and Inactive / Deactivated from the edit form.
+- **Role-Based Privilege Enforcement:**
+  - Non-admin managers can only edit First Name, Last Name, Department, and Address. Any attempt by non-admins to alter Salary, Email, Joining Date, or Status is rejected by the backend with `HTTP 403 Forbidden`.
+  - Frontend displays administrative badge and full edit controls for admins, while rendering protected fields as informative read-only previews for managers.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -819,6 +832,7 @@ git reset --soft HEAD~1
 - [x] **Analytics & Payroll Dashboard** - Visual KPI cards, department budget utilization progress bars, and breakdown tables for managers & admins
 - [x] **Admin Department Management & Budget Revision History** - Department name & budget allocation editing, automated revision audit trail, and safe deletion with employee assignment protection
 - [x] **Interactive Salary & Take-Home Pay Calculator** - Dual tax regime comparison (New vs. Old), statutory deductions (EPF, PT, ESI), "Load My Salary" profile integration, and printable payslip simulation preview
+- [x] **Full Admin Access to Edit All Employee Details** - Admin can modify First/Last Name, Department, Residential Address, Salary (with audit history), Official Email (with uniqueness check), Joining Date (with schema migration), and Account Status (active/inactive)
 - [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
 - [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
 

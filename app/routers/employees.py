@@ -1,3 +1,4 @@
+from datetime import date, datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
@@ -507,7 +508,7 @@ def create_employee(
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(require_manager_or_admin)
 ):
-    """Manager/Admin only. Create a new employee and auto-generate their email."""
+    """Manager/Admin only. Create a new employee and auto-generate or assign their email."""
     try:
         existing = db.query(EmployeeDB).filter(
             EmployeeDB.Emp_ID == employee.Emp_ID).first()
@@ -521,17 +522,54 @@ def create_employee(
             raise HTTPException(
                 status_code=400, detail="Dept_ID does not exist")
 
-        payload = employee.model_dump(exclude={"joining_date"})
+        # Parse joining date
+        parsed_j_date = None
+        if employee.joining_date:
+            if isinstance(employee.joining_date, date):
+                parsed_j_date = employee.joining_date
+            else:
+                try:
+                    parsed_j_date = datetime.strptime(str(employee.joining_date)[:10], "%Y-%m-%d").date()
+                except ValueError:
+                    parsed_j_date = None
+
+        if not parsed_j_date:
+            parsed_j_date = date.today()
+
+        payload = employee.model_dump(exclude={"joining_date", "Email", "is_active"})
         new_employee = EmployeeDB(**payload)
-        new_employee.Email = generate_employee_email(
-            db, employee.F_Name, employee.L_Name, joining_date=employee.joining_date
-        )
+        new_employee.joining_date = parsed_j_date
+        new_employee.created_at = datetime.combine(parsed_j_date, datetime.min.time())
+        if employee.is_active is not None:
+            new_employee.is_active = employee.is_active
+
+        # Handle Email assignment
+        if employee.Email and employee.Email.strip():
+            clean_email = employee.Email.strip().lower()
+            if db.query(EmployeeDB).filter(EmployeeDB.Email == clean_email).first():
+                raise HTTPException(
+                    status_code=409, detail=f"Email '{clean_email}' is already taken by another employee"
+                )
+            new_employee.Email = clean_email
+        else:
+            new_employee.Email = generate_employee_email(
+                db, employee.F_Name, employee.L_Name, joining_date=parsed_j_date
+            )
 
         db.add(new_employee)
+
+        # Log initial salary
+        db.add(SalaryHistoryDB(
+            Emp_ID=employee.Emp_ID,
+            old_salary=0.0,
+            new_salary=employee.Salary,
+            changed_by=current_user.username
+        ))
+
         db.commit()
         db.refresh(new_employee)
 
-        return {"message": "Employee created successfully", "employee": new_employee}
+        return {"message": "Employee created successfully", "employee": employee_view(new_employee, current_user.role)}
 
     except HTTPException:
         db.rollback()
@@ -551,19 +589,46 @@ def update_employee(
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(require_manager_or_admin)
 ):
-    """Manager/Admin only. Full update of employee details (salary changes require admin)."""
+    """
+    Manager/Admin update of employee details.
+    Admins have full access to edit ALL details: Name, Department, Address, Salary, Email, Joining Date, and Status.
+    Managers are restricted to editing Name, Department, and Address only.
+    """
     try:
         existing = db.query(EmployeeDB).filter(
             EmployeeDB.Emp_ID == emp_id).first()
         if existing is None:
             raise HTTPException(status_code=404, detail="Employee not found")
 
-        if float(existing.Salary) != employee.Salary:
+        # Department validation
+        if employee.Dept_ID != existing.Dept_ID:
+            dept = db.query(DepartmentDB).filter(DepartmentDB.Dept_ID == employee.Dept_ID).first()
+            if dept is None:
+                raise HTTPException(status_code=400, detail=f"Department #{employee.Dept_ID} does not exist")
+            existing.Dept_ID = employee.Dept_ID
+
+        # Basic fields (Manager & Admin can edit)
+        if not employee.F_Name.strip():
+            raise HTTPException(status_code=400, detail="First name cannot be empty")
+        if not employee.L_Name.strip():
+            raise HTTPException(status_code=400, detail="Last name cannot be empty")
+        if not employee.Address.strip():
+            raise HTTPException(status_code=400, detail="Address cannot be empty")
+
+        existing.F_Name = employee.F_Name.strip()
+        existing.L_Name = employee.L_Name.strip()
+        existing.Address = employee.Address.strip()
+
+        # Admin-only fields: Salary, Email, Joining Date, Status
+        # 1. Salary
+        if float(existing.Salary) != float(employee.Salary):
             if current_user.role != "admin":
                 raise HTTPException(
                     status_code=403,
                     detail="Only an admin can change an existing salary"
                 )
+            if employee.Salary < 0:
+                raise HTTPException(status_code=400, detail="Salary cannot be negative")
 
             db.add(SalaryHistoryDB(
                 Emp_ID=emp_id,
@@ -571,17 +636,63 @@ def update_employee(
                 new_salary=employee.Salary,
                 changed_by=current_user.username
             ))
+            existing.Salary = employee.Salary
 
-        existing.F_Name = employee.F_Name
-        existing.L_Name = employee.L_Name
-        existing.Salary = employee.Salary
-        existing.Dept_ID = employee.Dept_ID
-        existing.Address = employee.Address
+        # 2. Email
+        if employee.Email and employee.Email.strip() != (existing.Email or ""):
+            if current_user.role != "admin":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only an admin can edit an employee's official email"
+                )
+            clean_email = employee.Email.strip().lower()
+            if "@" not in clean_email or len(clean_email) < 5:
+                raise HTTPException(status_code=400, detail="Please provide a valid email address")
+            conflict = db.query(EmployeeDB).filter(
+                EmployeeDB.Email == clean_email,
+                EmployeeDB.Emp_ID != emp_id
+            ).first()
+            if conflict:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Email '{clean_email}' is already assigned to employee #{conflict.Emp_ID} ({conflict.F_Name} {conflict.L_Name})"
+                )
+            existing.Email = clean_email
+
+        # 3. Joining Date
+        if employee.joining_date:
+            parsed_d = None
+            if isinstance(employee.joining_date, date):
+                parsed_d = employee.joining_date
+            else:
+                try:
+                    parsed_d = datetime.strptime(str(employee.joining_date)[:10], "%Y-%m-%d").date()
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Invalid joining_date format (expected YYYY-MM-DD)")
+
+            curr_j_date = existing.joining_date or (existing.created_at.date() if existing.created_at else None)
+            if parsed_d != curr_j_date:
+                if current_user.role != "admin":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Only an admin can change an employee's joining date"
+                    )
+                existing.joining_date = parsed_d
+                existing.created_at = datetime.combine(parsed_d, datetime.min.time())
+
+        # 4. Status (is_active)
+        if employee.is_active is not None and employee.is_active != existing.is_active:
+            if current_user.role != "admin":
+                raise HTTPException(
+                    status_code=403,
+                    detail="Only an admin can change an employee's active status"
+                )
+            existing.is_active = employee.is_active
 
         db.commit()
         db.refresh(existing)
 
-        return {"message": "Employee updated successfully", "employee": existing}
+        return {"message": "Employee updated successfully", "employee": employee_view(existing, current_user.role)}
 
     except HTTPException:
         db.rollback()
@@ -601,7 +712,11 @@ def patch_employee(
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(require_manager_or_admin)
 ):
-    """Manager/Admin only. Partial update of employee details."""
+    """
+    Manager/Admin partial update of employee details.
+    Admins can edit any field (Name, Department, Address, Salary, Email, Joining Date, Status).
+    Managers can edit Name, Department, and Address.
+    """
     try:
         existing = db.query(EmployeeDB).filter(
             EmployeeDB.Emp_ID == emp_id).first()
@@ -613,27 +728,114 @@ def patch_employee(
             raise HTTPException(
                 status_code=400, detail="No fields provided to update")
 
-        if "Salary" in update_data and float(existing.Salary) != update_data["Salary"]:
-            if current_user.role != "admin":
-                raise HTTPException(
-                    status_code=403,
-                    detail="Only an admin can change an existing salary"
-                )
+        # 1. Salary check
+        if "Salary" in update_data and update_data["Salary"] is not None:
+            new_sal = float(update_data["Salary"])
+            if float(existing.Salary) != new_sal:
+                if current_user.role != "admin":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Only an admin can change an existing salary"
+                    )
+                if new_sal < 0:
+                    raise HTTPException(status_code=400, detail="Salary cannot be negative")
 
-            db.add(SalaryHistoryDB(
-                Emp_ID=emp_id,
-                old_salary=existing.Salary,
-                new_salary=update_data["Salary"],
-                changed_by=current_user.username
-            ))
+                db.add(SalaryHistoryDB(
+                    Emp_ID=emp_id,
+                    old_salary=existing.Salary,
+                    new_salary=new_sal,
+                    changed_by=current_user.username
+                ))
+                existing.Salary = new_sal
 
-        for field, value in update_data.items():
-            setattr(existing, field, value)
+        # 2. Email check
+        if "Email" in update_data and update_data["Email"] is not None:
+            clean_email = update_data["Email"].strip().lower()
+            if clean_email != (existing.Email or ""):
+                if current_user.role != "admin":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Only an admin can edit an employee's official email"
+                    )
+                if "@" not in clean_email or len(clean_email) < 5:
+                    raise HTTPException(status_code=400, detail="Please provide a valid email address")
+                conflict = db.query(EmployeeDB).filter(
+                    EmployeeDB.Email == clean_email,
+                    EmployeeDB.Emp_ID != emp_id
+                ).first()
+                if conflict:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Email '{clean_email}' is already assigned to employee #{conflict.Emp_ID} ({conflict.F_Name} {conflict.L_Name})"
+                    )
+                existing.Email = clean_email
+
+        # 3. Joining date check
+        if "joining_date" in update_data and update_data["joining_date"] is not None:
+            raw_d = update_data["joining_date"]
+            parsed_d = None
+            if isinstance(raw_d, date):
+                parsed_d = raw_d
+            else:
+                try:
+                    parsed_d = datetime.strptime(str(raw_d)[:10], "%Y-%m-%d").date()
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Invalid joining_date format (expected YYYY-MM-DD)")
+
+            curr_j_date = existing.joining_date or (existing.created_at.date() if existing.created_at else None)
+            if parsed_d != curr_j_date:
+                if current_user.role != "admin":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Only an admin can change an employee's joining date"
+                    )
+                existing.joining_date = parsed_d
+                existing.created_at = datetime.combine(parsed_d, datetime.min.time())
+
+        # 4. Status check
+        if "is_active" in update_data and update_data["is_active"] is not None:
+            if update_data["is_active"] != existing.is_active:
+                if current_user.role != "admin":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Only an admin can change an employee's active status"
+                    )
+                existing.is_active = update_data["is_active"]
+
+        # 5. Department check
+        if "Dept_ID" in update_data and update_data["Dept_ID"] is not None:
+            if update_data["Dept_ID"] != existing.Dept_ID:
+                dept = db.query(DepartmentDB).filter(
+                    DepartmentDB.Dept_ID == update_data["Dept_ID"]).first()
+                if dept is None:
+                    raise HTTPException(status_code=400, detail=f"Department #{update_data['Dept_ID']} does not exist")
+                existing.Dept_ID = update_data["Dept_ID"]
+
+        # 6. First Name
+        if "F_Name" in update_data and update_data["F_Name"] is not None:
+            val = update_data["F_Name"].strip()
+            if not val:
+                raise HTTPException(status_code=400, detail="First name cannot be empty")
+            existing.F_Name = val
+
+        # 7. Last Name
+        if "L_Name" in update_data and update_data["L_Name"] is not None:
+            val = update_data["L_Name"].strip()
+            if not val:
+                raise HTTPException(status_code=400, detail="Last name cannot be empty")
+            existing.L_Name = val
+
+        # 8. Address
+        if "Address" in update_data and update_data["Address"] is not None:
+            val = update_data["Address"].strip()
+            if not val:
+                raise HTTPException(status_code=400, detail="Address cannot be empty")
+            existing.Address = val
 
         db.commit()
         db.refresh(existing)
 
-        return {"message": "Employee partially updated successfully", "employee": existing}
+        return {"message": "Employee partially updated successfully", "employee": employee_view(existing, current_user.role)}
 
     except HTTPException:
         db.rollback()

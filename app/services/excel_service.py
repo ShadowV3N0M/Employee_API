@@ -377,6 +377,16 @@ def import_employees_from_records(
             is_active = False
 
         # Create Database Record
+        parsed_j_date = None
+        if joining_date:
+            if isinstance(joining_date, (datetime, date)):
+                parsed_j_date = joining_date.date() if isinstance(joining_date, datetime) else joining_date
+            else:
+                try:
+                    parsed_j_date = datetime.strptime(str(joining_date)[:10], "%Y-%m-%d").date()
+                except ValueError:
+                    parsed_j_date = None
+
         new_emp = EmployeeDB(
             Emp_ID=emp_id,
             F_Name=f_name,
@@ -386,6 +396,8 @@ def import_employees_from_records(
             Address=address,
             Email=final_email,
             is_active=is_active,
+            joining_date=parsed_j_date or date.today(),
+            created_at=datetime.combine(parsed_j_date or date.today(), datetime.min.time()),
         )
 
         try:
@@ -523,7 +535,7 @@ def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int,
     if is_privileged:
         headers = [
             "Emp_ID", "F_Name", "L_Name", "Email", "Department",
-            "Salary", "Address", "Status", "Created_At"
+            "Salary", "Address", "Status", "Joining_Date"
         ]
     else:
         headers = [
@@ -536,6 +548,9 @@ def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int,
         dept_name = dept_map.get(emp.Dept_ID, f"Dept #{emp.Dept_ID}")
         status = "Active" if emp.is_active else "Inactive"
         if is_privileged:
+            j_date_val = str(emp.joining_date) if getattr(emp, "joining_date", None) else (
+                emp.created_at.strftime("%Y-%m-%d") if emp.created_at else ""
+            )
             writer.writerow([
                 emp.Emp_ID,
                 emp.F_Name,
@@ -545,8 +560,7 @@ def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int,
                 float(emp.Salary) if emp.Salary is not None else 0.0,
                 emp.Address or "",
                 status,
-                emp.created_at.strftime(
-                    "%Y-%m-%d %H:%M:%S") if emp.created_at else "",
+                j_date_val,
             ])
         else:
             writer.writerow([

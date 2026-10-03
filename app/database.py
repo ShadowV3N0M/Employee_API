@@ -36,11 +36,36 @@ def auto_migrate_schema():
                     conn.execute(
                         text("ALTER TABLE `user` ADD COLUMN `email` VARCHAR(100) UNIQUE NULL"))
                     conn.commit()
+
+                has_joining_date = conn.execute(text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_schema = DATABASE() AND table_name = 'employee' AND column_name = 'joining_date'"
+                )).fetchone()
+                if not has_joining_date:
+                    conn.execute(
+                        text("ALTER TABLE `employee` ADD COLUMN `joining_date` DATE NULL"))
+                    try:
+                        conn.execute(
+                            text("UPDATE `employee` SET `joining_date` = DATE(`created_at`) WHERE `joining_date` IS NULL AND `created_at` IS NOT NULL"))
+                    except Exception:
+                        pass
+                    conn.commit()
             except Exception:
                 # SQLite / fallback check
                 try:
                     conn.execute(
                         text("ALTER TABLE user ADD COLUMN email VARCHAR(100)"))
+                    conn.commit()
+                except Exception:
+                    pass
+                try:
+                    conn.execute(
+                        text("ALTER TABLE employee ADD COLUMN joining_date DATE"))
+                    try:
+                        conn.execute(
+                            text("UPDATE employee SET joining_date = DATE(created_at) WHERE joining_date IS NULL AND created_at IS NOT NULL"))
+                    except Exception:
+                        pass
                     conn.commit()
                 except Exception:
                     pass

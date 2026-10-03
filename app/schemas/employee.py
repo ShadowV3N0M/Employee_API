@@ -11,7 +11,9 @@ class Employee(BaseModel):
     Salary: float
     Dept_ID: int
     Address: str
+    Email: Optional[str] = None
     joining_date: Optional[Union[str, date]] = None
+    is_active: Optional[bool] = True
 
 
 class EmployeeUpdate(BaseModel):
@@ -20,6 +22,9 @@ class EmployeeUpdate(BaseModel):
     Salary: Optional[float] = None
     Dept_ID: Optional[int] = None
     Address: Optional[str] = None
+    Email: Optional[str] = None
+    joining_date: Optional[Union[str, date]] = None
+    is_active: Optional[bool] = None
 
 
 class SalarySet(BaseModel):

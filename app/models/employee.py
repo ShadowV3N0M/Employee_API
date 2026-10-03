@@ -1,7 +1,7 @@
 """Employee and Salary History SQLAlchemy models."""
 from sqlalchemy import (
     Column, Integer, String, Numeric, Boolean,
-    DateTime, ForeignKey, func
+    DateTime, Date, ForeignKey, func
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -17,6 +17,7 @@ class EmployeeDB(Base):
     Dept_ID = Column(Integer, ForeignKey("department.Dept_ID"), nullable=False)
     Address = Column(String(500), nullable=False)
     Email = Column(String(100), unique=True, nullable=True)
+    joining_date = Column(Date, nullable=True)
 
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())

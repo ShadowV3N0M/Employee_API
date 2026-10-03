@@ -118,6 +118,16 @@ export default function EmployeeDetailModal({
               <span className="muted small" style={{ display: "block" }}>Department</span>
               <strong>{deptName}</strong>
             </div>
+            <div>
+              <span className="muted small" style={{ display: "block" }}>Joining Date</span>
+              <strong>{emp.joining_date ? emp.joining_date : (emp.created_at ? String(emp.created_at).slice(0, 10) : "—")}</strong>
+            </div>
+            <div>
+              <span className="muted small" style={{ display: "block" }}>Status</span>
+              <span className={`badge ${emp.is_active ? "ok" : "off"}`}>
+                {emp.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
           </div>
         </div>
 
