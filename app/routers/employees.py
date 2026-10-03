@@ -130,15 +130,16 @@ def get_employees(
 
 
 @router.get("/template")
-def download_template(
-    current_user: UserDB = Depends(get_current_user)
-):
+def download_template():
     """Download a CSV sample template showing supported columns."""
     csv_data = generate_sample_csv_template()
     return Response(
         content=csv_data,
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=employee_template.csv"}
+        headers={
+            "Content-Disposition": "attachment; filename=employee_template.csv",
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        }
     )
 
 

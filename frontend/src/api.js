@@ -237,12 +237,42 @@ export const api = {
   downloadEmployeeTemplate: () => `${BASE_URL}/employees/template`,
   exportEmployeesUrl: (params = {}) => {
     if (typeof params === "boolean") {
-      return `${BASE_URL}/employees/export?include_inactive=${params}`;
+      params = { include_inactive: params };
     }
     const clean = Object.fromEntries(
       Object.entries(params || {}).filter(([_, v]) => v != null && v !== "")
     );
+    const token = getToken();
+    if (token) clean.token = token;
     const q = new URLSearchParams(clean).toString();
     return `${BASE_URL}/employees/export${q ? `?${q}` : ""}`;
+  },
+
+  downloadBlob: async (url, filename) => {
+    const token = getToken();
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    let res;
+    try {
+      res = await fetch(url, { headers });
+    } catch {
+      throw new ApiError("Cannot reach the server. Is the API running?", 0);
+    }
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new ApiError(errorMessage(data, `Download failed (${res.status})`), res.status);
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
   },
 };

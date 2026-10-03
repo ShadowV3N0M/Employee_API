@@ -141,6 +141,18 @@ export default function ExcelImportModal({ onClose, onSuccess }) {
                   alignItems: "center",
                   gap: "6px",
                   textDecoration: "none",
+                  cursor: "pointer",
+                }}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await api.downloadBlob(
+                      api.downloadEmployeeTemplate(),
+                      "employee_template.csv"
+                    );
+                  } catch {
+                    window.location.href = api.downloadEmployeeTemplate();
+                  }
                 }}
               >
                 📥 Download Sample CSV Template

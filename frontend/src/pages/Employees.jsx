@@ -197,8 +197,19 @@ export default function Employees() {
             href={api.exportEmployeesUrl(exportParams)}
             download="employees.csv"
             className="btn ghost"
-            style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}
+            style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", cursor: "pointer" }}
             title="Export currently filtered employees as CSV"
+            onClick={async (e) => {
+              e.preventDefault();
+              try {
+                await api.downloadBlob(
+                  api.exportEmployeesUrl(exportParams),
+                  "employees.csv"
+                );
+              } catch (err) {
+                window.location.href = api.exportEmployeesUrl(exportParams);
+              }
+            }}
           >
             📤 Export CSV
           </a>

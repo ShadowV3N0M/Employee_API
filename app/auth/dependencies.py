@@ -1,5 +1,6 @@
 """FastAPI authentication and role-based authorization dependencies."""
-from fastapi import Depends, HTTPException, status
+from typing import Optional
+from fastapi import Depends, HTTPException, Query, status
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from app.auth.security import oauth2_scheme
@@ -11,10 +12,19 @@ VALID_ROLES = {"user", "manager", "admin"}
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    header_token: Optional[str] = Depends(oauth2_scheme),
+    query_token: Optional[str] = Query(None, alias="token"),
     db: Session = Depends(get_db)
 ) -> UserDB:
-    """Validate Bearer JWT and retrieve user from database."""
+    """Validate Bearer JWT and retrieve user from database (header or query param)."""
+    token = header_token or query_token
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
