@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import func, or_
 from sqlalchemy.exc import SQLAlchemyError
@@ -43,16 +43,27 @@ def get_employees(
     status: Optional[str] = None,
     min_salary: Optional[float] = None,
     max_salary: Optional[float] = None,
+    all_records: bool = Query(False, alias="all_records"),
+    all: bool = Query(False, alias="all"),
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(get_current_user)
 ):
-    """List employees with pagination, sorting, and multi-field filtering."""
+    """List employees with pagination, sorting, and multi-field filtering.
+    Pass all_records=true, all=true, or limit=0 to retrieve all N records without pagination caps."""
     try:
-        if page < 1 or limit < 1 or limit > 200:
-            raise HTTPException(
-                status_code=400,
-                detail="page must be >= 1 and limit must be between 1 and 200"
-            )
+        fetch_all = all_records or all or (limit == 0)
+
+        if not fetch_all:
+            if page < 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="page must be >= 1"
+                )
+            if limit < 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="limit must be >= 1 or set to 0 to fetch all records"
+                )
 
         # Standard users are restricted from sorting or filtering on salary
         if current_user.role == "user":
@@ -114,14 +125,22 @@ def get_employees(
                                "desc" else sort_column.asc())
 
         total = query.count()
-        items = query.offset((page - 1) * limit).limit(limit).all()
-
-        return {
-            "total": total,
-            "page": page,
-            "limit": limit,
-            "items": [employee_view(e, current_user.role) for e in items]
-        }
+        if fetch_all:
+            items = query.all()
+            return {
+                "total": total,
+                "page": 1,
+                "limit": total,
+                "items": [employee_view(e, current_user.role) for e in items]
+            }
+        else:
+            items = query.offset((page - 1) * limit).limit(limit).all()
+            return {
+                "total": total,
+                "page": page,
+                "limit": limit,
+                "items": [employee_view(e, current_user.role) for e in items]
+            }
 
     except HTTPException:
         raise

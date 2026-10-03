@@ -139,7 +139,7 @@ The API enforces strict Role-Based Access Control across three user roles: **`us
 | `POST` | `/auth/reset-password` | ✅ | ✅ | ✅ | ✅ | Reset password using valid reset token |
 | `GET` | `/auth/me` | ❌ | ✅ | ✅ | ✅ | Get profile of currently logged-in user |
 | `GET` | `/departments` | ❌ | ✅ | ✅ | ✅ | List all departments |
-| `GET` | `/employees` | ❌ | ✅* | ✅ | ✅ | List employees (*Salary & Address hidden for `user`) |
+| `GET` | `/employees` | ❌ | ✅* | ✅ | ✅ | List employees (*Salary & Address hidden for `user`; supports `all_records=true` or `limit=0` for all N records without pagination caps) |
 | `GET` | `/employees/{emp_id}` | ❌ | ✅* | ✅ | ✅ | Get employee details (*Salary & Address hidden for `user`) |
 | `POST` | `/employees` | ❌ | ❌ | ✅ | ✅ | Create an employee (with starting salary & auto-email) |
 | `PUT` | `/employees/{emp_id}` | ❌ | ❌ | ✅* | ✅ | Full update (*admin can edit all details: Name, Address, Salary, Email, Joining Date, Status; manager restricted to Name/Dept/Address) |
@@ -794,12 +794,12 @@ git reset --soft HEAD~1
   - **Employee State Insurance (ESI):** 0.75% of Gross pay for employees with Gross ≤ ₹21,000/month (exempt above ₹21,000).
 - **Earnings Breakdown:**
   - Configurable Basic Pay (50% of CTC), House Rent Allowance (HRA 50% for Metro cities, 40% for Non-Metro), Conveyance Allowance (fixed ₹1,600/month), Medical Allowance (fixed ₹1,250/month), and balancing Special Allowance.
-- **Employee Accessibility & Self-Service:**
-  - Unrestricted route accessible to all authenticated roles (`user`, `manager`, `admin`).
-  - **"Load My Salary" Profile Integration (`GET /employees/salary/my-profile`):** Authenticated employees can click a single button to auto-fill their annual CTC directly from their registered employee record on file.
-  - Interactive slider + quick preset chips (₹3.6 LPA, ₹6.0 LPA, ₹9.0 LPA, ₹12.0 LPA, ₹18.0 LPA, ₹25.0 LPA, ₹35.0 LPA).
-  - Dual table views: toggle between Monthly and Annual breakdown.
-  - **Simulated Payslip Voucher Preview Modal:** Formatted company payslip voucher with employee name, position, earnings/deductions breakdown, and printable styling (`window.print()`).
+- **Admin Full Employee Roster Inspector & Simulation Tools (`SalaryCalculator.jsx`):**
+  - **All N Employee Records Access:** Removes arbitrary 200 record caps by leveraging `GET /employees?all_records=true&status=all` (`limit=0`). System administrators and managers can access, search, and calculate salary breakdowns for any number of company employees regardless of organization size.
+  - **Employee Selection Directory Modal:** Comprehensive modal with live search by Name, Email, or Emp ID, Department dropdown filtering, Status filtering (Active, Inactive, All), and high-performance client-side pagination (25, 50, 100, 250, All items per page).
+  - **Selected Employee Card & Appraisal Raise Simulation:** Pre-fills employee compensation and features 1-click scenario simulation buttons (`+5%`, `+10%`, `+15%`, `+20%`, and `Reset to Base`) with real-time what-if delta calculations.
+  - **Official Salary Commitment (`PUT /employees/{emp_id}/salary`):** Admins can commit simulated salary revisions directly back to the database with a 1-click confirmation modal and automated salary history audit logging.
+  - **Personalized Payslip Generation:** Generates individualized payslip simulations with the selected employee's actual name, ID, department, and email address.
 
 ### 16. Comprehensive Admin Employee Details Editing (`PUT/PATCH /employees/{emp_id}`, `EmployeeForm.jsx`)
 - **Full Administrative Edit Authority:**

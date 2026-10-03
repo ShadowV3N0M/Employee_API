@@ -13,6 +13,7 @@ const SALARY_PRESETS = [
   { label: "₹18.0 LPA", value: 1800000 },
   { label: "₹25.0 LPA", value: 2500000 },
   { label: "₹35.0 LPA", value: 3500000 },
+  { label: "₹50.0 LPA", value: 5000000 },
 ];
 
 export default function SalaryCalculator() {
@@ -45,6 +46,9 @@ export default function SalaryCalculator() {
   const [showEmployeePicker, setShowEmployeePicker] = useState(false);
   const [empSearch, setEmpSearch] = useState("");
   const [empDeptFilter, setEmpDeptFilter] = useState("");
+  const [empStatusFilter, setEmpStatusFilter] = useState("all"); // "all" | "active" | "inactive"
+  const [modalPage, setModalPage] = useState(1);
+  const [modalPageSize, setModalPageSize] = useState(25); // 25, 50, 100, 250, "all"
   const [salaryActionMsg, setSalaryActionMsg] = useState("");
   const [applyingSalary, setApplyingSalary] = useState(false);
 
@@ -63,21 +67,26 @@ export default function SalaryCalculator() {
       .catch(() => {});
   }, []);
 
-  // For Admin / Manager: Fetch all employees and departments
+  // For Admin / Manager: Fetch all N employees and departments without 200 record limit cap
+  const fetchEmployeesRoster = () => {
+    if (!isPrivileged) return;
+    setLoadingEmployees(true);
+    Promise.all([
+      api.listEmployees({ all_records: true, all: true, limit: 0, status: "all" }),
+      api.listDepartments(),
+    ])
+      .then(([empRes, deptRes]) => {
+        setEmployeesList(empRes.items || []);
+        setDepartmentsList(deptRes || []);
+      })
+      .catch((err) => {
+        console.error("Failed to load full employee roster:", err);
+      })
+      .finally(() => setLoadingEmployees(false));
+  };
+
   useEffect(() => {
-    if (isPrivileged) {
-      setLoadingEmployees(true);
-      Promise.all([
-        api.listEmployees({ limit: 200, status: "all" }),
-        api.listDepartments(),
-      ])
-        .then(([empRes, deptRes]) => {
-          setEmployeesList(empRes.items || []);
-          setDepartmentsList(deptRes || []);
-        })
-        .catch(() => {})
-        .finally(() => setLoadingEmployees(false));
-    }
+    fetchEmployeesRoster();
   }, [isPrivileged]);
 
   // Department name lookup map
@@ -89,11 +98,20 @@ export default function SalaryCalculator() {
     return map;
   }, [departmentsList]);
 
-  // Filtered employee list for admin picker modal
+  // Reset modal pagination to page 1 whenever filters change
+  useEffect(() => {
+    setModalPage(1);
+  }, [empSearch, empDeptFilter, empStatusFilter]);
+
+  // Filtered employee list for admin picker modal across all N records
   const filteredEmployees = useMemo(() => {
     return employeesList.filter((emp) => {
       if (empDeptFilter && emp.Dept_ID !== Number(empDeptFilter)) {
         return false;
+      }
+      if (empStatusFilter && empStatusFilter !== "all") {
+        if (empStatusFilter === "active" && !emp.is_active) return false;
+        if (empStatusFilter === "inactive" && emp.is_active) return false;
       }
       if (empSearch.trim()) {
         const q = empSearch.toLowerCase().trim();
@@ -104,7 +122,18 @@ export default function SalaryCalculator() {
       }
       return true;
     });
-  }, [employeesList, empDeptFilter, empSearch]);
+  }, [employeesList, empDeptFilter, empStatusFilter, empSearch]);
+
+  const totalFiltered = filteredEmployees.length;
+  const totalPages =
+    modalPageSize === "all" ? 1 : Math.max(1, Math.ceil(totalFiltered / Number(modalPageSize)));
+
+  const pagedEmployees = useMemo(() => {
+    if (modalPageSize === "all") return filteredEmployees;
+    const size = Number(modalPageSize);
+    const start = (modalPage - 1) * size;
+    return filteredEmployees.slice(start, start + size);
+  }, [filteredEmployees, modalPage, modalPageSize]);
 
   const handleLoadMySalary = () => {
     setSelectedEmployee(null);
@@ -351,7 +380,7 @@ export default function SalaryCalculator() {
         `✅ Successfully updated #${selectedEmployee.Emp_ID} ${selectedEmployee.F_Name} ${selectedEmployee.L_Name}'s official compensation to ${formatMoney(newSalary)}!`
       );
       // Refresh directory in background
-      api.listEmployees({ limit: 200, status: "all" }).then((res) => {
+      api.listEmployees({ all_records: true, all: true, limit: 0, status: "all" }).then((res) => {
         setEmployeesList(res.items || []);
       });
       setTimeout(() => setSalaryActionMsg(""), 6000);
@@ -399,7 +428,7 @@ export default function SalaryCalculator() {
                     fontSize: "0.75rem",
                   }}
                 >
-                  {employeesList.length}
+                  {employeesList.length.toLocaleString()}
                 </span>
               )}
             </button>
@@ -672,9 +701,8 @@ export default function SalaryCalculator() {
                   <button
                     key={p.value}
                     type="button"
-                    className={`btn small ${
-                      Number(amountInput) === p.value ? "primary" : "secondary"
-                    }`}
+                    className={`btn small ${Number(amountInput) === p.value ? "primary" : "secondary"
+                      }`}
                     onClick={() => setAmountInput(String(p.value))}
                   >
                     {p.label}
@@ -1182,16 +1210,15 @@ export default function SalaryCalculator() {
       {/* Admin Employee Selector Modal */}
       {showEmployeePicker && (
         <Modal
-          title={`Employee Compensation Directory (${filteredEmployees.length} Available)`}
+          title={`Employee Compensation Directory (${totalFiltered.toLocaleString()} of ${employeesList.length.toLocaleString()} Available)`}
           onClose={() => setShowEmployeePicker(false)}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             <p className="small muted" style={{ margin: 0 }}>
-              Select any employee to load their registered compensation into the calculator, inspect
-              take-home pay, or model appraisal raises.
+              Access and search across all {employeesList.length.toLocaleString()} employee records in the company. Select any employee to load their registered compensation, model take-home pay, or simulate appraisal raises.
             </p>
 
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
               <input
                 type="search"
                 placeholder="🔍 Search by name, ID, or email..."
@@ -1205,13 +1232,45 @@ export default function SalaryCalculator() {
                 onChange={(e) => setEmpDeptFilter(e.target.value)}
                 style={{ flex: "0 1 180px" }}
               >
-                <option value="">All Departments</option>
+                <option value="">All Departments ({departmentsList.length})</option>
                 {departmentsList.map((d) => (
                   <option key={d.Dept_ID} value={d.Dept_ID}>
                     {d.Dept_Name}
                   </option>
                 ))}
               </select>
+              <select
+                value={empStatusFilter}
+                onChange={(e) => setEmpStatusFilter(e.target.value)}
+                style={{ flex: "0 1 140px" }}
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active Only</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+              <button
+                type="button"
+                className="btn ghost small"
+                onClick={fetchEmployeesRoster}
+                disabled={loadingEmployees}
+                title="Re-fetch all employee records from database"
+              >
+                {loadingEmployees ? "⏳ Refreshing…" : "🔄 Refresh"}
+              </button>
+              {(empSearch || empDeptFilter || empStatusFilter !== "all") && (
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  onClick={() => {
+                    setEmpSearch("");
+                    setEmpDeptFilter("");
+                    setEmpStatusFilter("all");
+                  }}
+                  title="Clear all filters"
+                >
+                  ✕ Clear
+                </button>
+              )}
             </div>
 
             <div
@@ -1224,7 +1283,7 @@ export default function SalaryCalculator() {
             >
               {loadingEmployees ? (
                 <div style={{ padding: "30px", textAlign: "center" }} className="muted">
-                  Loading employees roster…
+                  Loading complete employee roster…
                 </div>
               ) : filteredEmployees.length === 0 ? (
                 <div style={{ padding: "30px", textAlign: "center" }} className="muted">
@@ -1243,7 +1302,7 @@ export default function SalaryCalculator() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredEmployees.map((emp) => (
+                    {pagedEmployees.map((emp) => (
                       <tr
                         key={emp.Emp_ID}
                         style={{
@@ -1293,9 +1352,106 @@ export default function SalaryCalculator() {
               )}
             </div>
 
+            {/* Pagination & Roster Info Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "10px",
+                padding: "8px 0",
+                borderTop: "1px solid var(--border)",
+                fontSize: "0.85rem",
+              }}
+            >
+              <div className="muted">
+                Showing{" "}
+                <strong>
+                  {totalFiltered === 0
+                    ? 0
+                    : modalPageSize === "all"
+                    ? 1
+                    : (modalPage - 1) * Number(modalPageSize) + 1}
+                </strong>{" "}
+                –{" "}
+                <strong>
+                  {modalPageSize === "all"
+                    ? totalFiltered
+                    : Math.min(modalPage * Number(modalPageSize), totalFiltered)}
+                </strong>{" "}
+                of <strong>{totalFiltered.toLocaleString()}</strong> matching (Total:{" "}
+                <strong>{employeesList.length.toLocaleString()}</strong>)
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span className="small muted">Per page:</span>
+                  <select
+                    value={modalPageSize}
+                    onChange={(e) => {
+                      setModalPageSize(e.target.value === "all" ? "all" : Number(e.target.value));
+                      setModalPage(1);
+                    }}
+                    style={{ padding: "2px 6px", fontSize: "0.8rem", width: "auto" }}
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={250}>250</option>
+                    <option value="all">All ({totalFiltered.toLocaleString()})</option>
+                  </select>
+                </div>
+
+                {modalPageSize !== "all" && totalPages > 1 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      disabled={modalPage <= 1}
+                      onClick={() => setModalPage(1)}
+                      title="First page"
+                    >
+                      «
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      disabled={modalPage <= 1}
+                      onClick={() => setModalPage((p) => p - 1)}
+                      title="Previous page"
+                    >
+                      ‹ Prev
+                    </button>
+                    <span style={{ padding: "0 6px", fontWeight: 600 }}>
+                      {modalPage} / {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      disabled={modalPage >= totalPages}
+                      onClick={() => setModalPage((p) => p + 1)}
+                      title="Next page"
+                    >
+                      Next ›
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      disabled={modalPage >= totalPages}
+                      onClick={() => setModalPage(totalPages)}
+                      title="Last page"
+                    >
+                      »
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="actions" style={{ marginTop: "4px" }}>
               <button type="button" className="btn ghost" onClick={() => setShowEmployeePicker(false)}>
-                Cancel
+                Done / Close
               </button>
             </div>
           </div>
@@ -1360,8 +1516,8 @@ export default function SalaryCalculator() {
                   {selectedEmployee
                     ? `#${selectedEmployee.Emp_ID} · ${deptMap[selectedEmployee.Dept_ID] || `Dept #${selectedEmployee.Dept_ID}`}`
                     : myProfile?.matched
-                    ? `#${myProfile.Emp_ID} · Dept #${myProfile.Dept_ID}`
-                    : user.role}
+                      ? `#${myProfile.Emp_ID} · Dept #${myProfile.Dept_ID}`
+                      : user.role}
                 </strong>
               </div>
               <div>

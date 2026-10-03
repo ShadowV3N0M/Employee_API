@@ -895,4 +895,27 @@ def test_department_edit_history_and_delete():
     assert get_404.status_code == 404
 
 
+def test_get_employees_all_records_and_custom_limits():
+    """Verify all_records=true and limit=0 return all records without pagination caps."""
+    admin = headers_for("admin")
+    
+    # 1. Fetch with all_records=true
+    res_all = client.get("/employees?all_records=true&status=all", headers=admin)
+    assert res_all.status_code == 200
+    data_all = res_all.json()
+    assert "total" in data_all
+    assert len(data_all["items"]) == data_all["total"]
+    
+    # 2. Fetch with limit=0
+    res_zero = client.get("/employees?limit=0&status=all", headers=admin)
+    assert res_zero.status_code == 200
+    data_zero = res_zero.json()
+    assert len(data_zero["items"]) == data_zero["total"]
+
+    # 3. Fetch with custom limit > 200
+    res_custom = client.get("/employees?limit=500", headers=admin)
+    assert res_custom.status_code == 200
+
+
+
 
