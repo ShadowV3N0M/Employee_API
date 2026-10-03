@@ -1,3 +1,9 @@
+# -----------------------------------------------------------------
+# Oldest Version of the Application for reference. This file is not used in the current application.
+# 0.0.1 - 2026-08-23
+# -----------------------------------------------------------------
+
+
 import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
