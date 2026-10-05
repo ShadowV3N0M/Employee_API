@@ -822,6 +822,27 @@ git reset --soft HEAD~1
   - Synchronized with clickable table headers (`.sortable-th`) showing directional arrows.
   - Interactive `⚡ Filter By` toggle button with dynamic active count pills (`⚡ Filter By (2)`), instant filtration, and quick resets across Employees, Departments, Users, Analytics, and Salary Calculator roster.
 
+### 18. Holiday Calendar, Business Days Simulator & Company Announcements (`GET/POST /holidays`, `GET /holidays/business-days`, `GET/POST /announcements`, `Holidays.jsx`)
+- **Centralized Holiday Calendar Engine (`app/models/holiday.py`, `app/routers/holidays.py`):**
+  - **Database Persistence (`holiday` table):** Stores annual company and public holidays (`id`, `name`, `holiday_date`, `holiday_type`: `National` | `Gazetted` | `Festival` | `Observance`, `description`, `created_at`).
+  - **Countdown & Dynamic Metadata:** Every returned holiday includes day of the week and a real-time countdown (`days_remaining`) from today's date.
+  - **Upcoming Holidays Spotlight (`GET /holidays/upcoming`):** Returns the next upcoming company holidays for banner spotlights and dashboard widgets.
+  - **Seed Default Holidays (`POST /holidays/seed-defaults`):** 1-click admin utility populating 12 Indian national gazetted public holidays for the current year (Republic Day, Holi, Eid, Independence Day, Gandhi Jayanti, Dussehra, Diwali, Guru Nanak Jayanti, Christmas, etc.).
+  - **Full Admin CRUD:** Add individual holidays, update date/type/details, or delete holidays with confirmation.
+- **Accurate Business Days Calculation Simulator (`GET /holidays/business-days`):**
+  - **Leave Integration Engine:** Calculates exact working business days between any two dates.
+  - **Automated Deductions:** Iterates through every date in the range, automatically identifying weekend days (Saturdays and Sundays) and deducting gazetted holidays falling on weekdays, preventing double deductions.
+  - **Transparent Breakdown:** Returns total calendar days, weekend days, holiday days, net working business days, and the exact list of holidays encountered.
+- **Corporate Company Announcements Bulletin Board (`announcement` table):**
+  - **Priority System:** Support for four priority levels (`urgent`, `important`, `general`, `event`) with color-coded badges and visual hierarchy.
+  - **Pinned Notices:** Critical announcements can be pinned to the top of the feed (`is_pinned=true`).
+  - **Department Targeting:** Notices can be broadcast company-wide (`target_dept_id=None`) or targeted to specific organizational departments.
+  - **Role-Based Authoring & Moderation:** Managers and Admins can publish, edit, pin, and delete announcements, while all authenticated team members have immediate reading access.
+- **Interactive 3-Tab Frontend Hub (`Holidays.jsx`):**
+  - **Tab 1: 📅 Holiday Calendar:** Year filter, holiday type dropdown, live text search, table view vs. modern responsive grid card view toggle, upcoming holiday spotlight banner, and Admin action modal.
+  - **Tab 2: 📢 Company Announcements:** Priority filter chips, department filter, pinned notice styling with glowing alert cards, author badges, and publish modal.
+  - **Tab 3: 🧮 Business Days Calculator:** Date pickers with quick presets (This Month, Next Month, Next 14 Days, Next 30 Days), calculation metrics cards, and breakdown of all holidays in the selected span.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -856,7 +877,7 @@ git reset --soft HEAD~1
 - [ ] **Outgoing webhooks & third-party HRIS integrations** - Event-driven webhooks for Slack, Microsoft Teams, and enterprise payroll APIs
 - [ ] **Organization chart & reporting hierarchy** - Manager relationships, direct reports, and cycle-detection traversal
 - [ ] **Employee self-service profile & emergency contacts** - Self-service personal profile editing, primary/secondary emergency contacts, and blood group directory
-- [ ] **Holiday calendar & company announcements** - Annual company holiday schedule and corporate bulletin board feeding leave business-day calculations
+- [x] **Holiday calendar & company announcements** - Annual company holiday schedule, corporate bulletin board, and business-day calculation engine
 - [ ] **Statutory compliance exports** - Indian payroll statutory reporting (PF ECR text file, ESI monthly return, Form 16, and 24Q quarterly returns)
 - [ ] **Single Sign-On (SSO)** - Enterprise SSO integration via Google Workspace and Microsoft 365 (OAuth2 / OIDC)
 - [ ] **Fine-grained custom permission builder** - Granular role and permission matrix beyond fixed admin/manager/user tiers

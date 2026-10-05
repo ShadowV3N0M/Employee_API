@@ -13,6 +13,7 @@ from app.routers import (
     employee_router,
     health_router,
     salary_router,
+    holiday_router,
 )
 
 
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(department_router)
     app.include_router(employee_router)
     app.include_router(salary_router)
+    app.include_router(holiday_router)
 
     from fastapi.responses import RedirectResponse
 
