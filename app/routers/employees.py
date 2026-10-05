@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -903,17 +903,77 @@ def delete_employee(
     db: Session = Depends(get_db),
     current_user: UserDB = Depends(require_admin)
 ):
-    """Admin only. Hard delete: permanently removes record from database."""
+    """
+    Admin only. Hard delete: permanently removes record from database
+    and automatically re-sequences / decrements all subsequent Emp_IDs by 1
+    (along with their salary history records) so employee IDs remain consecutive without gaps.
+    """
     try:
         employee = db.query(EmployeeDB).filter(
             EmployeeDB.Emp_ID == emp_id).first()
         if employee is None:
             raise HTTPException(status_code=404, detail="Employee not found")
 
-        db.delete(employee)
+        emp_name = f"{employee.F_Name} {employee.L_Name}"
+        dialect_name = db.bind.dialect.name
+
+        if dialect_name == "mysql":
+            db.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
+            db.execute(
+                text("DELETE FROM salary_history WHERE Emp_ID = :del_id"),
+                {"del_id": emp_id}
+            )
+            db.execute(
+                text("DELETE FROM employee WHERE Emp_ID = :del_id"),
+                {"del_id": emp_id}
+            )
+            db.execute(
+                text("UPDATE salary_history SET Emp_ID = Emp_ID - 1 WHERE Emp_ID > :del_id ORDER BY Emp_ID ASC"),
+                {"del_id": emp_id}
+            )
+            db.execute(
+                text("UPDATE employee SET Emp_ID = Emp_ID - 1 WHERE Emp_ID > :del_id ORDER BY Emp_ID ASC"),
+                {"del_id": emp_id}
+            )
+            db.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+        else:
+            if dialect_name == "sqlite":
+                db.execute(text("PRAGMA foreign_keys = OFF"))
+
+            db.execute(
+                text("DELETE FROM salary_history WHERE Emp_ID = :del_id"),
+                {"del_id": emp_id}
+            )
+            db.execute(
+                text("DELETE FROM employee WHERE Emp_ID = :del_id"),
+                {"del_id": emp_id}
+            )
+
+            higher_ids = [r[0] for r in db.execute(
+                text("SELECT Emp_ID FROM employee WHERE Emp_ID > :del_id ORDER BY Emp_ID ASC"),
+                {"del_id": emp_id}
+            ).fetchall()]
+
+            for old_id in higher_ids:
+                new_id = old_id - 1
+                db.execute(
+                    text("UPDATE salary_history SET Emp_ID = :new_id WHERE Emp_ID = :old_id"),
+                    {"new_id": new_id, "old_id": old_id}
+                )
+                db.execute(
+                    text("UPDATE employee SET Emp_ID = :new_id WHERE Emp_ID = :old_id"),
+                    {"new_id": new_id, "old_id": old_id}
+                )
+
+            if dialect_name == "sqlite":
+                db.execute(text("PRAGMA foreign_keys = ON"))
+
         db.commit()
 
-        return {"message": "Employee deleted successfully"}
+        return {
+            "message": f"Employee #{emp_id} ({emp_name}) deleted permanently. Subsequent employee IDs have been automatically updated.",
+            "deleted_emp_id": emp_id,
+        }
 
     except HTTPException:
         db.rollback()

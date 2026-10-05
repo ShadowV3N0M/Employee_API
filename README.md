@@ -843,6 +843,7 @@ git reset --soft HEAD~1
 - [x] **Full Admin Access to Edit All Employee Details** - Admin can modify First/Last Name, Department, Residential Address, Salary (with audit history), Official Email (with uniqueness check), Joining Date (with schema migration), and Account Status (active/inactive)
 - [x] **Universal Sort By & Filter By Engine Across Every Page & Modal** - Dedicated Sort By dropdown popover with direction toggles, clickable table headers, and Filter By button with active count pills across Employees, Departments, Users, Analytics, and Salary Calculator roster
 - [x] **Show / Hide Password Visibility Toggle** - Interactive eye icon toggles password visibility (plain text vs masked) on Login and Registration forms with theme-adaptive styling and accessibility support
+- [x] **Admin Permanent Employee Deletion & Auto-Resequencing of Emp_IDs** - Admin can permanently delete an employee directly from the edit form; cascades salary history deletion and automatically decrements all subsequent Emp_IDs by 1 in an atomic transaction so employee IDs remain strictly consecutive without gaps
 - [ ] **PDF export & official report generator** - Official payslip vouchers, department expense statements, and employee directories via `reportlab`/`weasyprint`
 - [ ] **Employee attendance & time-tracking module** - Real-time clock-in/out, punch logs, work hour analytics, and regularization requests
 - [ ] **Leave & time-off management system** - Accrual balances, multi-day leave applications, and multi-tier manager approval workflows
