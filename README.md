@@ -854,6 +854,14 @@ git reset --soft HEAD~1
 - [ ] **Global command palette (`Ctrl+K` / `Cmd+K`)** - Spotlight-style instant navigation, quick employee search, and keyboard shortcut hub
 - [ ] **Automated database backup & disaster recovery** - Scheduled SQL snapshot dumps, backup management console, and safe point-in-time restore
 - [ ] **Outgoing webhooks & third-party HRIS integrations** - Event-driven webhooks for Slack, Microsoft Teams, and enterprise payroll APIs
+- [ ] **Organization chart & reporting hierarchy** - Manager relationships, direct reports, and cycle-detection traversal
+- [ ] **Employee self-service profile & emergency contacts** - Self-service personal profile editing, primary/secondary emergency contacts, and blood group directory
+- [ ] **Holiday calendar & company announcements** - Annual company holiday schedule and corporate bulletin board feeding leave business-day calculations
+- [ ] **Statutory compliance exports** - Indian payroll statutory reporting (PF ECR text file, ESI monthly return, Form 16, and 24Q quarterly returns)
+- [ ] **Single Sign-On (SSO)** - Enterprise SSO integration via Google Workspace and Microsoft 365 (OAuth2 / OIDC)
+- [ ] **Fine-grained custom permission builder** - Granular role and permission matrix beyond fixed admin/manager/user tiers
+- [ ] **Scheduled, emailed recurring reports** - Automated cron delivery of payroll, attendance, and budget reports directly to executive inboxes
+- [ ] **Progressive Web App (PWA) & offline support** - Service worker caching, installable mobile app experience, and offline-resilient directory browsing
 
 ---
 
@@ -960,6 +968,86 @@ The following modules represent the next-generation architectural enhancements p
   - Native incoming webhook connectors for Slack and Microsoft Teams for HR announcements.
 - **Frontend Integration:**
   - Webhooks management dashboard in Admin view: configure target URLs, secret signing keys, event filters, and review delivery logs with HTTP response status codes.
+
+### 11. Organization Chart & Reporting Hierarchy
+- **Backend Architecture:**
+  - Database schema extension: `manager_id = Column(Integer, ForeignKey("employee.Emp_ID"), nullable=True)` on `EmployeeDB`.
+  - Recursive tree traversal engine with cycle-detection graph verification (preventing circular reporting loops `A -> B -> A`).
+  - Endpoints:
+    - `GET /employees/org-chart`: Returns full nested organization tree with direct report headcounts and department branches.
+    - `PATCH /employees/{emp_id}/manager`: Reassigns reporting manager with validation and cycle prevention.
+    - `GET /employees/{emp_id}/team`: Returns direct and indirect subordinates for any manager or team lead.
+- **Frontend Integration:**
+  - Dedicated `/org-chart` page with interactive zoomable and pannable hierarchy chart, collapsible department nodes, manager quick-reassignment, and employee profile preview cards.
+
+### 12. Employee Self-Service Profile & Emergency Contacts
+- **Backend Architecture:**
+  - Tables: `employee_emergency_contacts` (`id`, `emp_id`, `contact_name`, `relationship`, `phone_primary`, `phone_secondary`, `is_primary`) and extended personal attributes (`blood_group`, `personal_phone`, `dob`, `marital_status`).
+  - Endpoints:
+    - `GET /employees/me/profile`: Authenticated user views their linked employee profile.
+    - `PUT /employees/me/profile`: Allows employees to self-manage personal details, residential address, and emergency contacts without exposing privileged salary or department fields.
+- **Frontend Integration:**
+  - "My Profile & Emergency Contacts" tab inside the topbar User Profile dropdown; instant SOS/emergency contact lookup cards for managers and HR administrators.
+
+### 13. Holiday Calendar & Company Announcements
+- **Backend Architecture:**
+  - Tables: `holidays` (`id`, `name`, `date`, `is_optional`, `applicable_regions`) and `announcements` (`id`, `title`, `body`, `priority`: `urgent` | `standard` | `low`, `published_at`, `expires_at`, `created_by`).
+  - Business logic integration: Leave engine queries `holidays` and weekends to automatically compute deductible business days during leave applications.
+  - Endpoints:
+    - `GET /holidays`: List annual corporate paid holidays.
+    - `POST /holidays`: Admin endpoint to manage company holidays.
+    - `GET /announcements`: Corporate announcement feed with priority ordering.
+- **Frontend Integration:**
+  - Interactive Holiday Calendar view showing upcoming paid days off; corporate bulletin board banner widget on the dashboard for urgent company-wide notices.
+
+### 14. Statutory Compliance Exports (Indian Payroll & Tax Filings)
+- **Backend Architecture:**
+  - Automated compliance calculator tied to Salary Calculator logic (EPF 12% capped at ₹1,800/actuals, ESI 0.75%/3.25%, Professional Tax state slabs, TDS projections under New & Old tax regimes).
+  - Endpoints:
+    - `GET /compliance/pf-ecr`: Generates official EPFO Electronic Challan Return (ECR) text file formatted for direct upload to the EPFO unified portal.
+    - `GET /compliance/esi-return`: Generates monthly ESIC contribution return spreadsheet.
+    - `GET /compliance/form-16/{emp_id}`: Generates Part A and Part B PDF certificate for annual income tax return filing.
+    - `GET /compliance/tds-24q`: Generates quarterly 24Q e-TDS filing format.
+- **Frontend Integration:**
+  - Dedicated "Statutory Compliance Hub" in Analytics page: 1-click downloads for ECR text files, ESIC spreadsheets, state PT reports, and batch Form 16 PDF exports.
+
+### 15. Single Sign-On (SSO via Google Workspace & Microsoft 365)
+- **Backend Architecture:**
+  - OAuth2 / OpenID Connect (OIDC) pipeline supporting Google Identity and Microsoft Azure AD / Entra ID.
+  - Endpoints:
+    - `GET /auth/sso/google/login` & `GET /auth/sso/google/callback`
+    - `GET /auth/sso/microsoft/login` & `GET /auth/sso/microsoft/callback`
+  - JIT (Just-In-Time) user provisioning mapping corporate emails (`@laesfera.co`) directly to active database employees.
+  - Strict domain restriction enforcement for enterprise security.
+- **Frontend Integration:**
+  - Sleek "Sign in with Google" and "Sign in with Microsoft" action buttons on the 3D flip card login page (`Login.jsx`), styled to respect active light and dark themes.
+
+### 16. Fine-Grained Custom Permission Builder
+- **Backend Architecture:**
+  - Tables: `permissions` (`id`, `code`: `employees.view_salary`, `employees.edit_basic`, `departments.manage_budget`, `attendance.approve`, etc.) and `role_permissions` join table.
+  - Dynamic permission dependency injection middleware evaluating user permissions per request rather than static role enums.
+  - Endpoints:
+    - `GET /auth/permissions`: Complete permission catalog.
+    - `POST /auth/roles/custom`: Create custom enterprise roles (e.g. "HR Payroll Specialist", "Department Lead", "Auditor").
+    - `PUT /auth/roles/{role_id}/permissions`: Updates granular permission matrix.
+- **Frontend Integration:**
+  - Interactive Role & Permission Matrix view in Users management (`Users.jsx`) with checkbox grid for granular privilege assignments.
+
+### 17. Scheduled, Emailed Recurring Reports
+- **Backend Architecture:**
+  - Asynchronous background task scheduler (Celery / APScheduler) running periodic report generations.
+  - Table: `scheduled_reports` (`id`, `report_type`: `payroll_summary` | `department_budget` | `attendance_headcount`, `frequency`: `daily` | `weekly` | `monthly`, `recipient_emails`, `cron_expression`, `is_active`).
+  - Automated HTML email dispatch with attached PDF/Excel reports using configured SMTP gateway.
+- **Frontend Integration:**
+  - "Scheduled Reports" modal in Analytics page: configure report type, recipients, frequency, and test immediate dispatch with preview.
+
+### 18. Progressive Web App (PWA) & Offline Support
+- **Backend Architecture:**
+  - Enhanced cache headers and ETag validation for static and semi-static API responses (`/departments`, `/employees/summary`).
+  - Delta synchronization endpoint `GET /sync/delta?since=...` returning only records modified since the client's last sync timestamp.
+- **Frontend Integration:**
+  - Web App Manifest (`manifest.json`) and service worker with Workbox caching strategies (stale-while-revalidate for rosters, cache-first for assets).
+  - Install App banner prompt for mobile and desktop; offline indicator with cached directory browsing and queued background actions.
 
 ---
 *Last updated: 2026-10-05*
