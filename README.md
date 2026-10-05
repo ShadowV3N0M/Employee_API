@@ -842,8 +842,122 @@ git reset --soft HEAD~1
 - [x] **Interactive Salary & Take-Home Pay Calculator** - Dual tax regime comparison (New vs. Old), statutory deductions (EPF, PT, ESI), "Load My Salary" profile integration, and printable payslip simulation preview
 - [x] **Full Admin Access to Edit All Employee Details** - Admin can modify First/Last Name, Department, Residential Address, Salary (with audit history), Official Email (with uniqueness check), Joining Date (with schema migration), and Account Status (active/inactive)
 - [x] **Universal Sort By & Filter By Engine Across Every Page & Modal** - Dedicated Sort By dropdown popover with direction toggles, clickable table headers, and Filter By button with active count pills across Employees, Departments, Users, Analytics, and Salary Calculator roster
-- [ ] **PDF export of reports** - Export employee rosters, department expense breakdowns, and salary history to PDF
-- [ ] **Attendance / leave tracking module** - Check-in/check-out logs, time-off requests, and manager approval workflows
+- [ ] **PDF export & official report generator** - Official payslip vouchers, department expense statements, and employee directories via `reportlab`/`weasyprint`
+- [ ] **Employee attendance & time-tracking module** - Real-time clock-in/out, punch logs, work hour analytics, and regularization requests
+- [ ] **Leave & time-off management system** - Accrual balances, multi-day leave applications, and multi-tier manager approval workflows
+- [ ] **Performance appraisal & review management** - Evaluation cycles, metric scorecards, and appraisal-driven salary increment integrations
+- [ ] **Multi-factor authentication (MFA/2FA) & session manager** - TOTP authenticator QR setup via `pyotp` and concurrent session tracking
+- [ ] **Real-time push notifications & announcements (WebSockets)** - Live topbar notification bell, instant event triggers, and company announcements
+- [ ] **Employee document & KYC storage vault** - Encrypted cloud/local storage for contracts, identity proofs, and tax declaration receipts
+- [ ] **Global command palette (`Ctrl+K` / `Cmd+K`)** - Spotlight-style instant navigation, quick employee search, and keyboard shortcut hub
+- [ ] **Automated database backup & disaster recovery** - Scheduled SQL snapshot dumps, backup management console, and safe point-in-time restore
+- [ ] **Outgoing webhooks & third-party HRIS integrations** - Event-driven webhooks for Slack, Microsoft Teams, and enterprise payroll APIs
 
 ---
-*Last updated: 2026-10-03*
+
+## Future Updates & Next-Gen Roadmap
+
+The following modules represent the next-generation architectural enhancements planned for future release cycles of the Employee Management & HRMS Platform:
+
+### 1. PDF Export & Official Company Reports Engine
+- **Backend Architecture:**
+  - Integrated `reportlab` and `weasyprint` rendering pipelines.
+  - Endpoints:
+    - `GET /reports/payslip/{emp_id}/pdf`: Generates formal, printable monthly salary slip vouchers containing gross earnings, statutory deductions (EPF, PT, ESI, TDS), net pay, and organization seal watermark.
+    - `GET /reports/employees/pdf`: Filtered directory report formatted for HR printing.
+    - `GET /reports/departments/pdf`: Department-level budget utilization and head-count cost breakdown report for executive leadership.
+    - `GET /reports/salary-revisions/{emp_id}/pdf`: Formal salary increment/revision letter with compensation history audit log.
+- **Frontend Integration:**
+  - Dedicated "Export PDF" buttons embedded in `SalaryCalculator.jsx` (payslip voucher preview and instant PDF download), `Employees.jsx`, `Analytics.jsx`, and `HistoryModal.jsx`.
+
+### 2. Employee Attendance & Time-Tracking Module
+- **Backend Architecture:**
+  - New database table `attendance` (`id`, `emp_id`, `date`, `clock_in`, `clock_out`, `total_hours`, `status`: `present` | `late` | `half_day` | `absent`, `work_mode`: `office` | `remote` | `hybrid`).
+  - Endpoints:
+    - `POST /attendance/clock-in`: Captures timestamp and IP/work mode.
+    - `POST /attendance/clock-out`: Calculates shift duration and overtime.
+    - `GET /attendance`: Paginated attendance history with date-range filters.
+    - `POST /attendance/regularize`: Allows employees to request correction for missed punches with manager approval flow.
+- **Frontend Integration:**
+  - Topbar Quick-Action Clock-In / Clock-Out widget with live stopwatch timer.
+  - Dedicated `/attendance` dashboard with monthly calendar heatmap, punch history table, and manager approval queue.
+
+### 3. Leave & Time-Off Management System
+- **Backend Architecture:**
+  - Tables: `leave_balances` (`emp_id`, `casual_leave`, `sick_leave`, `earned_leave`) and `leave_requests` (`id`, `emp_id`, `leave_type`, `start_date`, `end_date`, `reason`, `status`: `pending` | `approved` | `rejected`, `reviewed_by`, `reviewer_comments`).
+  - Automated accrual engine: Monthly cron task crediting leave quotas based on company tenure.
+  - Endpoints:
+    - `POST /leaves/apply`: Submits request with automatic business-day calculation (excluding weekends and public holidays).
+    - `GET /leaves/my-requests`: Employee request tracking.
+    - `PATCH /leaves/{request_id}/status`: Manager approval/rejection endpoint with automated notification.
+- **Frontend Integration:**
+  - Dedicated `/leaves` view with leave balance overview cards, calendar selector, and interactive approval hub for managers.
+
+### 4. Performance Appraisal & Review Management
+- **Backend Architecture:**
+  - Table: `appraisals` (`id`, `emp_id`, `cycle_id`, `rating`, `self_assessment`, `manager_feedback`, `promotion_recommended`, `recommended_increment_pct`, `status`).
+  - Endpoints:
+    - `POST /appraisals/submit`: Employee self-evaluation submission.
+    - `PUT /appraisals/{id}/review`: Manager rating and feedback submission.
+    - `POST /appraisals/{id}/apply-increment`: Admin action to directly promote recommended increment into employee salary and generate revision history.
+- **Frontend Integration:**
+  - Seamless integration with the existing `SalaryCalculator.jsx`, allowing managers to test appraisal percentages (`+5%`, `+10%`, `+15%`) and commit them with a single click.
+
+### 5. Multi-Factor Authentication (MFA / 2FA) & Session Security
+- **Backend Architecture:**
+  - Time-based One-Time Password (TOTP) standard implementation using `pyotp` and QR code generator (`qrcode[pil]`).
+  - Endpoints:
+    - `POST /auth/2fa/setup`: Generates base32 secret and QR code URI.
+    - `POST /auth/2fa/verify`: Validates 6-digit TOTP token to activate 2FA and generates one-time backup recovery codes.
+    - `POST /auth/2fa/disable`: Requires current password and token verification.
+  - Active session registry tracking client IP, user agent, login timestamp, and token revocation for single-device or global sign-out.
+- **Frontend Integration:**
+  - "Security & 2FA" tab in User Profile modal (`ChangePasswordModal.jsx` / User Menu).
+  - Setup wizard with QR code scanner view, token verification input, and active session manager with "Revoke All Other Sessions".
+
+### 6. Real-Time Push Notifications & Announcements (WebSockets / SSE)
+- **Backend Architecture:**
+  - WebSocket hub or Server-Sent Events (SSE) router (`/ws/notifications/{user_id}`).
+  - Event dispatch triggers for:
+    - Salary revisions and appraisal approvals.
+    - Leave request status updates.
+    - Role modifications and security alerts.
+    - System-wide corporate broadcast announcements.
+- **Frontend Integration:**
+  - Interactive topbar Notification Bell icon with real-time unread badge counter, sliding notification drawer, audio notification toggle, and instant notification toast popups.
+
+### 7. Employee Document & KYC Storage Vault
+- **Backend Architecture:**
+  - Table: `employee_documents` (`id`, `emp_id`, `category`: `id_proof` | `contract` | `tax_form` | `certificate`, `filename`, `file_path`, `file_size`, `mime_type`, `uploaded_at`).
+  - Secure local or S3-compatible cloud storage with cryptographic checksums, virus scanning validation, and role-restricted signed download URLs (`GET /employees/{emp_id}/documents/{doc_id}/download`).
+- **Frontend Integration:**
+  - "Documents & KYC" tab inside `EmployeeDetailModal.jsx` with drag-and-drop file upload, document previewer (PDF & image modal), and document verification status pills (`Verified` / `Pending Verification`).
+
+### 8. Global Command Palette & Keyboard Shortcuts (`Ctrl+K` / `Cmd+K`)
+- **Backend Architecture:**
+  - High-speed unified search endpoint `GET /search/global?q=...` querying across employees, departments, users, and audit logs with relevance ranking.
+- **Frontend Integration:**
+  - Spotlight-style Command Palette modal accessible via `Ctrl+K` / `Cmd+K` keyboard shortcut or topbar quick search.
+  - Keyboard navigation (`↑`, `↓`, `Enter`, `Esc`) to jump to any page, open specific employee details, toggle theme, or trigger bulk operations.
+  - Keyboard shortcuts cheat-sheet modal (`?` key).
+
+### 9. Automated Database Backups & Disaster Recovery
+- **Backend Architecture:**
+  - Scheduled automated database dumps (`pg_dump` / `sqlite3`) compressed to `.sql.gz` with configurable retention policies (daily, weekly, monthly).
+  - Endpoints (restricted to Super-Admin role):
+    - `GET /admin/backups`: Lists existing snapshots with file size and timestamp.
+    - `POST /admin/backups/create`: Triggers immediate snapshot creation.
+    - `POST /admin/backups/restore/{backup_id}`: Safe database restoration workflow with pre-restore state locking.
+- **Frontend Integration:**
+  - Admin-only "System & Maintenance" panel showing backup status, disk usage, 1-click snapshot creation, and snapshot download links.
+
+### 10. Outgoing Webhooks & Third-Party HRIS Integration
+- **Backend Architecture:**
+  - Event-driven webhook dispatcher engine supporting HMAC SHA-256 signatures for payload integrity.
+  - Configurable event subscriptions: `employee.created`, `employee.updated`, `salary.revised`, `leave.approved`.
+  - Native incoming webhook connectors for Slack and Microsoft Teams for HR announcements.
+- **Frontend Integration:**
+  - Webhooks management dashboard in Admin view: configure target URLs, secret signing keys, event filters, and review delivery logs with HTTP response status codes.
+
+---
+*Last updated: 2026-10-05*
