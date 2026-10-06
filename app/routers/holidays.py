@@ -360,6 +360,20 @@ def create_announcement(
     db.add(new_a)
     db.commit()
     db.refresh(new_a)
+
+    try:
+        from app.services.notification_service import dispatch_notification
+        dispatch_notification(
+            db=db,
+            title=f"📢 {new_a.title}",
+            message=new_a.content[:160] + ("..." if len(new_a.content) > 160 else ""),
+            type="announcement",
+            link="/holidays",
+            broadcast=True,
+        )
+    except Exception:
+        pass
+
     return _announcement_to_out(new_a, db)
 
 

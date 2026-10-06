@@ -4,6 +4,7 @@ from app.models.department import DepartmentDB, DepartmentHistoryDB
 from app.models.employee import EmployeeDB, SalaryHistoryDB
 from app.models.user import UserDB, PasswordResetTokenDB
 from app.models.holiday import HolidayDB, AnnouncementDB
+from app.models.notification import NotificationDB
 
 __all__ = [
     "Base",
@@ -15,4 +16,5 @@ __all__ = [
     "PasswordResetTokenDB",
     "HolidayDB",
     "AnnouncementDB",
+    "NotificationDB",
 ]

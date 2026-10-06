@@ -588,6 +588,19 @@ def create_employee(
         db.commit()
         db.refresh(new_employee)
 
+        try:
+            from app.services.notification_service import dispatch_notification
+            dispatch_notification(
+                db=db,
+                title="👥 New Employee Onboarded",
+                message=f"{new_employee.F_Name} {new_employee.L_Name} has joined the organization (Dept #{new_employee.Dept_ID}).",
+                type="employee",
+                link="/",
+                broadcast=True,
+            )
+        except Exception:
+            pass
+
         return {"message": "Employee created successfully", "employee": employee_view(new_employee, current_user.role)}
 
     except HTTPException:
@@ -969,6 +982,19 @@ def delete_employee(
                 db.execute(text("PRAGMA foreign_keys = ON"))
 
         db.commit()
+
+        try:
+            from app.services.notification_service import dispatch_notification
+            dispatch_notification(
+                db=db,
+                title="🗑️ Employee Removed",
+                message=f"Employee #{emp_id} ({emp_name}) was deleted by {current_user.username}. Emp_IDs re-sequenced.",
+                type="warning",
+                link="/",
+                broadcast=True,
+            )
+        except Exception:
+            pass
 
         return {
             "message": f"Employee #{emp_id} ({emp_name}) deleted permanently. Subsequent employee IDs have been automatically updated.",

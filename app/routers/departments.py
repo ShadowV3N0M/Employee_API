@@ -60,6 +60,19 @@ def create_department(
         db.commit()
         db.refresh(new_dept)
 
+        try:
+            from app.services.notification_service import dispatch_notification
+            dispatch_notification(
+                db=db,
+                title="🏛️ New Department Created",
+                message=f"Department '{new_dept.Dept_Name}' (ID #{new_dept.Dept_ID}) was created.",
+                type="department",
+                link="/departments",
+                broadcast=True,
+            )
+        except Exception:
+            pass
+
         return new_dept
 
     except HTTPException:

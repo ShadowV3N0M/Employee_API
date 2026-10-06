@@ -843,6 +843,33 @@ git reset --soft HEAD~1
   - **Tab 2: 📢 Company Announcements:** Priority filter chips, department filter, pinned notice styling with glowing alert cards, author badges, and publish modal.
   - **Tab 3: 🧮 Business Days Calculator:** Date pickers with quick presets (This Month, Next Month, Next 14 Days, Next 30 Days), calculation metrics cards, and breakdown of all holidays in the selected span.
 
+### 19. Real-Time Push Notifications & Announcements via WebSockets (`/ws/notifications`, `GET/PATCH/DELETE /notifications`, `NotificationBell.jsx`, `NotificationContext.jsx`)
+- **Full-Duplex WebSocket Engine (`app/services/notification_service.py`, `app/routers/notifications.py`):**
+  - **Connection Manager (`ws_manager`):** Thread-safe WebSocket connection manager grouping active client sockets by `user_id`. Supports multi-tab and multi-device sessions per user.
+  - **Handshake Authentication:** Seamless token validation via query parameter (`/ws/notifications?token={jwt_token}`) with automatic user account verification.
+  - **Live Heartbeat & Keep-Alive:** Periodic 25-second ping/pong frames preventing timeout through reverse proxies and corporate firewalls.
+  - **Instant Event Triggers:** Automated real-time push dispatches connected to core business actions:
+    - *Announcements:* When managers or admins publish a corporate bulletin board notice.
+    - *Employee Management:* When new staff members are onboarded, restored, or permanently deleted.
+    - *Salary Revisions:* When compensation adjustments or batch payroll revisions are committed.
+    - *Department Operations:* When organizational departments are created or budgets modified.
+- **Persistent Notification Inbox & REST APIs (`notification` table):**
+  - Stores user alerts with category types (`announcement`, `employee`, `salary`, `department`, `system`, `info`, `warning`, `success`), dynamic relative timestamps (`time_ago`), deep-links, and read statuses.
+  - Endpoints:
+    - `GET /notifications`: Paginated notification retrieval with `unread_only` filter.
+    - `GET /notifications/unread-count`: Lightweight badge count endpoint.
+    - `PATCH /notifications/{id}/read`: Mark specific item as read.
+    - `PATCH /notifications/mark-all-read`: 1-click batch read update for current user.
+    - `DELETE /notifications/{id}` & `DELETE /notifications/clear-all`: Inbox management.
+    - `POST /notifications/broadcast`: Restricted admin/manager endpoint to dispatch custom push alerts to everyone or specific roles.
+- **Frontend Topbar Notification Bell & Audio Chime (`NotificationBell.jsx`, `NotificationContext.jsx`):**
+  - **Animated Bell & Badge:** Topbar notification bell with ringing animation on new incoming alerts, unread count pill badge (`99+`), and green "Live" WebSocket status indicator dot.
+  - **Melodic Web Audio Chime:** Gentle synthetic two-tone chime (E5 ➔ A5) generated natively via the HTML5 Web Audio API on new incoming notifications (no external audio assets required).
+  - **Interactive Popover Dropdown:** "All" vs "Unread" filter tabs, category icon badges, deep-link navigation on click, individual dismissal, and clear-read action.
+  - **Floating Real-Time Toast Banner:** Slide-in alert at the top-right corner with live pill badge and auto-dismiss timer.
+  - **Native Desktop Push Notifications:** Integrated browser notifications via `Notification.requestPermission()`.
+  - **Manager / Admin Broadcast Modal:** Instant modal allowing team leaders to compose and dispatch custom alerts to all staff or targeted roles.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -870,7 +897,7 @@ git reset --soft HEAD~1
 - [ ] **Leave & time-off management system** - Accrual balances, multi-day leave applications, and multi-tier manager approval workflows
 - [ ] **Performance appraisal & review management** - Evaluation cycles, metric scorecards, and appraisal-driven salary increment integrations
 - [ ] **Multi-factor authentication (MFA/2FA) & session manager** - TOTP authenticator QR setup via `pyotp` and concurrent session tracking
-- [ ] **Real-time push notifications & announcements (WebSockets)** - Live topbar notification bell, instant event triggers, and company announcements
+- [x] **Real-time push notifications & announcements (WebSockets)** - Live topbar notification bell, unread badge counter, audio chime, and company announcements
 - [ ] **Employee document & KYC storage vault** - Encrypted cloud/local storage for contracts, identity proofs, and tax declaration receipts
 - [ ] **Global command palette (`Ctrl+K` / `Cmd+K`)** - Spotlight-style instant navigation, quick employee search, and keyboard shortcut hub
 - [ ] **Automated database backup & disaster recovery** - Scheduled SQL snapshot dumps, backup management console, and safe point-in-time restore

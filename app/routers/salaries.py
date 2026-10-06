@@ -82,6 +82,20 @@ def bulk_salary_increment(
             })
 
         db.commit()
+
+        try:
+            from app.services.notification_service import dispatch_notification
+            dispatch_notification(
+                db=db,
+                title="💰 Salary Revision Applied",
+                message=f"Salary adjustment committed for {len(updated)} employee(s) by {current_user.username}.",
+                type="salary",
+                link="/salary-calculator",
+                broadcast=True,
+            )
+        except Exception:
+            pass
+
         return {
             "message": f"Successfully updated salary for {len(updated)} employee(s)",
             "updated_count": len(updated),
