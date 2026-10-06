@@ -870,6 +870,29 @@ git reset --soft HEAD~1
   - **Native Desktop Push Notifications:** Integrated browser notifications via `Notification.requestPermission()`.
   - **Manager / Admin Broadcast Modal:** Instant modal allowing team leaders to compose and dispatch custom alerts to all staff or targeted roles.
 
+### 20. Employee Self-Service Profile & Emergency Contacts (`GET/PUT /employees/me/profile`, `GET/POST/PUT/DELETE /employees/me/emergency-contacts`, `GET /employees/{emp_id}/emergency-contacts`, `Profile.jsx`)
+- **Identity Link Engine (`UserDB.emp_id` & `resolve_user_employee`):**
+  - Seamlessly links user login accounts to employee records via explicit `emp_id` foreign key, with intelligent automatic fallback to official email address or username matching.
+  - Dedicated admin utility endpoint `POST /employees/link-user` to explicitly bind user accounts to employee IDs.
+- **Extended Personal Profile Attributes (`EmployeeDB` & Database Migrations):**
+  - Added personal non-organizational fields: `personal_phone` (mobile), `blood_group` (`A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+`, `O-`), `dob` (date of birth), and `marital_status` (`Single`, `Married`, `Divorced`, `Widowed`).
+  - Automatic database schema migration in `app/database.py` ensuring backwards compatibility.
+- **Self-Service Boundaries & Privacy Protection:**
+  - `GET /employees/me/profile`: Authenticated staff view their complete personal profile, official department placement, joining date, private salary/compensation, and registered emergency contacts.
+  - `PUT /employees/me/profile`: Allows employees to self-manage their personal contact number, blood group, date of birth, marital status, and residential address while strictly preventing unauthorized alteration of official company fields (Salary, Department, Email, Joining Date).
+  - Automatically dispatches real-time audit notifications on profile updates.
+- **Emergency Contacts & SOS Directory (`employee_emergency_contact` table):**
+  - Relational emergency contact table with cascade deletion: `emp_id`, `contact_name`, `relationship_type` (`Spouse`, `Parent`, `Sibling`, `Child`, `Friend`, `Guardian`, `Other`), `phone_primary`, `phone_secondary`, and `is_primary` priority flag.
+  - Automatic single-primary enforcement: Setting a contact as primary resets other contacts for that employee.
+  - Full self-service CRUD (`GET/POST/PUT/DELETE /employees/me/emergency-contacts`).
+  - **Manager & HR SOS Lookup:** Dedicated endpoint `GET /employees/{emp_id}/emergency-contacts` allowing team leads and HR admins to look up emergency contacts for any staff member in an incident.
+- **Frontend Interactive Profile Hub & Detail Modal (`Profile.jsx`, `EmployeeDetailModal.jsx`):**
+  - **Hero Header Card:** Employee avatar with initials, role badge, active status pill, department, and annual CTC preview tile.
+  - **Tab 1 (Personal Details):** Form to edit personal phone, select blood group with medical badge, set date of birth with live age calculator, marital status, and residential address, alongside read-only organizational credentials.
+  - **Tab 2 (Emergency Contacts & SOS):** Primary contact spotlight hero card with click-to-call link (`tel:...`), copy-number action, secondary contacts grid, and modal dialog to add/edit emergency contacts.
+  - **Manager Detail Modal Integration:** `EmployeeDetailModal.jsx` displays blood group badges, personal mobile phone, and the full emergency contacts list for rapid medical/incident outreach.
+  - **Navigation Integration:** Added `👤 My Profile` in the collapsible sidebar and directly at the top of the topbar user profile dropdown menu.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -903,7 +926,7 @@ git reset --soft HEAD~1
 - [ ] **Automated database backup & disaster recovery** - Scheduled SQL snapshot dumps, backup management console, and safe point-in-time restore
 - [ ] **Outgoing webhooks & third-party HRIS integrations** - Event-driven webhooks for Slack, Microsoft Teams, and enterprise payroll APIs
 - [ ] **Organization chart & reporting hierarchy** - Manager relationships, direct reports, and cycle-detection traversal
-- [ ] **Employee self-service profile & emergency contacts** - Self-service personal profile editing, primary/secondary emergency contacts, and blood group directory
+- [x] **Employee self-service profile & emergency contacts** - Self-service personal profile editing, primary/secondary emergency contacts, and blood group directory
 - [x] **Holiday calendar & company announcements** - Annual company holiday schedule, corporate bulletin board, and business-day calculation engine
 - [ ] **Statutory compliance exports** - Indian payroll statutory reporting (PF ECR text file, ESI monthly return, Form 16, and 24Q quarterly returns)
 - [ ] **Single Sign-On (SSO)** - Enterprise SSO integration via Google Workspace and Microsoft 365 (OAuth2 / OIDC)

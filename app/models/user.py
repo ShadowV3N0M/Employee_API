@@ -17,6 +17,7 @@ class UserDB(Base):
     # "admin", "manager", "user"
     role = Column(String(20), default="user", nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    emp_id = Column(Integer, ForeignKey("employee.Emp_ID", ondelete="SET NULL"), nullable=True)
 
     reset_tokens = relationship(
         "PasswordResetTokenDB",

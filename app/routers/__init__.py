@@ -6,6 +6,7 @@ from app.routers.health import router as health_router
 from app.routers.salaries import router as salary_router
 from app.routers.holidays import router as holiday_router
 from app.routers.notifications import router as notification_router
+from app.routers.profile import router as profile_router
 
 __all__ = [
     "auth_router",
@@ -15,4 +16,5 @@ __all__ = [
     "salary_router",
     "holiday_router",
     "notification_router",
+    "profile_router",
 ]

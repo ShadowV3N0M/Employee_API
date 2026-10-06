@@ -24,8 +24,20 @@ class EmployeeDB(Base):
     updated_at = Column(DateTime, server_default=func.now(),
                         onupdate=func.now())
 
+    # Extended Self-Service Personal Attributes
+    personal_phone = Column(String(20), nullable=True)
+    blood_group = Column(String(10), nullable=True)  # A+, A-, B+, B-, AB+, AB-, O+, O-
+    dob = Column(Date, nullable=True)  # Date of birth
+    marital_status = Column(String(20), nullable=True)  # Single, Married, Divorced, Widowed
+
     department = relationship("DepartmentDB", back_populates="employees")
     salary_history = relationship("SalaryHistoryDB", back_populates="employee")
+    emergency_contacts = relationship(
+        "EmergencyContactDB",
+        back_populates="employee",
+        cascade="all, delete-orphan",
+        order_by="desc(EmergencyContactDB.is_primary), EmergencyContactDB.id.asc()",
+    )
 
 
 class SalaryHistoryDB(Base):
@@ -39,3 +51,25 @@ class SalaryHistoryDB(Base):
     changed_at = Column(DateTime, server_default=func.now())
 
     employee = relationship("EmployeeDB", back_populates="salary_history")
+
+
+class EmergencyContactDB(Base):
+    """Emergency contacts directory for employees (SOS contact cards)."""
+    __tablename__ = "employee_emergency_contact"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    emp_id = Column(
+        Integer,
+        ForeignKey("employee.Emp_ID", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    contact_name = Column(String(100), nullable=False)
+    relationship_type = Column(String(50), nullable=False)  # "Spouse", "Parent", "Sibling", "Child", "Friend", "Guardian", "Other"
+    phone_primary = Column(String(20), nullable=False)
+    phone_secondary = Column(String(20), nullable=True)
+    is_primary = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    employee = relationship("EmployeeDB", back_populates="emergency_contacts")

@@ -50,17 +50,38 @@ def auto_migrate_schema():
                     except Exception:
                         pass
                     conn.commit()
+
+                # Extended self-service profile columns
+                cols_to_add = [
+                    ("user", "emp_id", "INT NULL"),
+                    ("employee", "personal_phone", "VARCHAR(20) NULL"),
+                    ("employee", "blood_group", "VARCHAR(10) NULL"),
+                    ("employee", "dob", "DATE NULL"),
+                    ("employee", "marital_status", "VARCHAR(20) NULL"),
+                ]
+                for tbl, col, col_def in cols_to_add:
+                    has_col = conn.execute(text(
+                        f"SELECT 1 FROM information_schema.columns "
+                        f"WHERE table_schema = DATABASE() AND table_name = '{tbl}' AND column_name = '{col}'"
+                    )).fetchone()
+                    if not has_col:
+                        conn.execute(text(f"ALTER TABLE `{tbl}` ADD COLUMN `{col}` {col_def}"))
+                        conn.commit()
+
             except Exception:
                 # SQLite / fallback check
                 try:
-                    conn.execute(
-                        text("ALTER TABLE user ADD COLUMN email VARCHAR(100)"))
+                    conn.execute(text("ALTER TABLE user ADD COLUMN email VARCHAR(100)"))
                     conn.commit()
                 except Exception:
                     pass
                 try:
-                    conn.execute(
-                        text("ALTER TABLE employee ADD COLUMN joining_date DATE"))
+                    conn.execute(text("ALTER TABLE user ADD COLUMN emp_id INTEGER"))
+                    conn.commit()
+                except Exception:
+                    pass
+                try:
+                    conn.execute(text("ALTER TABLE employee ADD COLUMN joining_date DATE"))
                     try:
                         conn.execute(
                             text("UPDATE employee SET joining_date = DATE(created_at) WHERE joining_date IS NULL AND created_at IS NOT NULL"))
@@ -69,5 +90,16 @@ def auto_migrate_schema():
                     conn.commit()
                 except Exception:
                     pass
+                for col, col_def in [
+                    ("personal_phone", "VARCHAR(20)"),
+                    ("blood_group", "VARCHAR(10)"),
+                    ("dob", "DATE"),
+                    ("marital_status", "VARCHAR(20)"),
+                ]:
+                    try:
+                        conn.execute(text(f"ALTER TABLE employee ADD COLUMN {col} {col_def}"))
+                        conn.commit()
+                    except Exception:
+                        pass
     except Exception as e:
         print(f"[WARN] Schema auto-migration check: {e}")
