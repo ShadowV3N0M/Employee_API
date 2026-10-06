@@ -447,10 +447,10 @@ Follow these steps to publish your project to GitHub. You can maintain the backe
 ### 1. Push the Backend (`employee_api`) to GitHub
 
 1. Create a new repository on **[GitHub](https://github.com/new)** named `employee-api` (leave "Initialize with README" **unchecked**).
-2. Open PowerShell in `D:\Sagar\Python\employee_api`:
+2. Open PowerShell in `Your file address `:  <!--D:\Sagar\Python\employee_api -->
 
 ```powershell
-cd D:\Sagar\Python\employee_api
+cd  Your filepath address  # D:\Sagar\Python\employee_api
 
 # 1. Initialize Git repository
 git init
