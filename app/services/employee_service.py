@@ -41,5 +41,9 @@ def employee_view(emp: EmployeeDB, role: str) -> dict:
         view["Address"] = emp.Address
         view["created_at"] = emp.created_at
         view["updated_at"] = emp.updated_at
+        view["personal_phone"] = emp.personal_phone
+        view["blood_group"] = emp.blood_group
+        view["dob"] = str(emp.dob) if getattr(emp, "dob", None) else None
+        view["marital_status"] = emp.marital_status
 
     return view

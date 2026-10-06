@@ -14,6 +14,10 @@ class Employee(BaseModel):
     Email: Optional[str] = None
     joining_date: Optional[Union[str, date]] = None
     is_active: Optional[bool] = True
+    personal_phone: Optional[str] = None
+    blood_group: Optional[str] = None
+    dob: Optional[Union[str, date]] = None
+    marital_status: Optional[str] = None
 
 
 class EmployeeUpdate(BaseModel):
@@ -25,6 +29,10 @@ class EmployeeUpdate(BaseModel):
     Email: Optional[str] = None
     joining_date: Optional[Union[str, date]] = None
     is_active: Optional[bool] = None
+    personal_phone: Optional[str] = None
+    blood_group: Optional[str] = None
+    dob: Optional[Union[str, date]] = None
+    marital_status: Optional[str] = None
 
 
 class SalarySet(BaseModel):

@@ -555,12 +555,30 @@ def create_employee(
         if not parsed_j_date:
             parsed_j_date = date.today()
 
-        payload = employee.model_dump(exclude={"joining_date", "Email", "is_active"})
+        # Parse dob
+        parsed_dob = None
+        if employee.dob:
+            if isinstance(employee.dob, date):
+                parsed_dob = employee.dob
+            else:
+                try:
+                    parsed_dob = datetime.strptime(str(employee.dob)[:10], "%Y-%m-%d").date()
+                except ValueError:
+                    parsed_dob = None
+
+        payload = employee.model_dump(exclude={"joining_date", "dob", "Email", "is_active", "personal_phone", "blood_group", "marital_status"})
         new_employee = EmployeeDB(**payload)
         new_employee.joining_date = parsed_j_date
+        new_employee.dob = parsed_dob
         new_employee.created_at = datetime.combine(parsed_j_date, datetime.min.time())
         if employee.is_active is not None:
             new_employee.is_active = employee.is_active
+        if employee.personal_phone:
+            new_employee.personal_phone = employee.personal_phone.strip()
+        if employee.blood_group:
+            new_employee.blood_group = employee.blood_group.strip().upper()
+        if employee.marital_status:
+            new_employee.marital_status = employee.marital_status.strip().title()
 
         # Handle Email assignment
         if employee.Email and employee.Email.strip():
@@ -721,6 +739,24 @@ def update_employee(
                 )
             existing.is_active = employee.is_active
 
+        # 5. Personal Details (Phone, Blood Group, Marital Status, DOB)
+        if employee.personal_phone is not None:
+            existing.personal_phone = employee.personal_phone.strip() if employee.personal_phone.strip() else None
+        if employee.blood_group is not None:
+            existing.blood_group = employee.blood_group.strip().upper() if employee.blood_group.strip() else None
+        if employee.marital_status is not None:
+            existing.marital_status = employee.marital_status.strip().title() if employee.marital_status.strip() else None
+        if employee.dob is not None:
+            if isinstance(employee.dob, date):
+                existing.dob = employee.dob
+            elif str(employee.dob).strip():
+                try:
+                    existing.dob = datetime.strptime(str(employee.dob)[:10], "%Y-%m-%d").date()
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Invalid dob format (expected YYYY-MM-DD)")
+            else:
+                existing.dob = None
+
         db.commit()
         db.refresh(existing)
 
@@ -863,6 +899,34 @@ def patch_employee(
             if not val:
                 raise HTTPException(status_code=400, detail="Address cannot be empty")
             existing.Address = val
+
+        # 9. Personal Phone
+        if "personal_phone" in update_data:
+            val = update_data["personal_phone"]
+            existing.personal_phone = val.strip() if val and val.strip() else None
+
+        # 10. Blood Group
+        if "blood_group" in update_data:
+            val = update_data["blood_group"]
+            existing.blood_group = val.strip().upper() if val and val.strip() else None
+
+        # 11. Marital Status
+        if "marital_status" in update_data:
+            val = update_data["marital_status"]
+            existing.marital_status = val.strip().title() if val and val.strip() else None
+
+        # 12. Date of Birth
+        if "dob" in update_data:
+            raw_dob = update_data["dob"]
+            if raw_dob is None or (isinstance(raw_dob, str) and not raw_dob.strip()):
+                existing.dob = None
+            elif isinstance(raw_dob, date):
+                existing.dob = raw_dob
+            else:
+                try:
+                    existing.dob = datetime.strptime(str(raw_dob)[:10], "%Y-%m-%d").date()
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Invalid dob format (expected YYYY-MM-DD)")
 
         db.commit()
         db.refresh(existing)
