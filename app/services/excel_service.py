@@ -333,50 +333,13 @@ def import_employees_from_records(
             })
             continue
 
-        # Resolve Emp_ID
-        emp_id: int
-        if raw_emp_id is not None and str(raw_emp_id).strip() != "":
-            try:
-                emp_id = int(float(str(raw_emp_id).strip()))
-                # Check for duplicate
-                existing = db.query(EmployeeDB).filter(
-                    EmployeeDB.Emp_ID == emp_id).first()
-                if existing:
-                    errors.append({
-                        "row": index,
-                        "emp_id": emp_id,
-                        "error": f"Emp_ID {emp_id} already exists in database ({existing.F_Name} {existing.L_Name})"
-                    })
-                    continue
-            except (ValueError, TypeError):
-                emp_id = next_emp_id
-                next_emp_id += 1
-        else:
-            emp_id = next_emp_id
-            next_emp_id += 1
-
-        # Check / Generate Email
-        final_email: str
-        if explicit_email:
-            existing_email = db.query(EmployeeDB).filter(
-                EmployeeDB.Email == explicit_email).first()
-            if existing_email:
-                # If explicitly provided email is taken, generate unique variation
-                final_email = generate_employee_email(
-                    db, f_name, l_name, joining_date=joining_date)
-            else:
-                final_email = explicit_email
-        else:
-            final_email = generate_employee_email(
-                db, f_name, l_name, joining_date=joining_date)
-
         # Parse active status
         is_active = True
         raw_active = row.get("is_active")
         if raw_active is not None and str(raw_active).strip().lower() in ("false", "0", "no", "inactive"):
             is_active = False
 
-        # Create Database Record
+        # Parse joining date
         parsed_j_date = None
         if joining_date:
             if isinstance(joining_date, (datetime, date)):
@@ -388,6 +351,78 @@ def import_employees_from_records(
                         str(joining_date)[:10], "%Y-%m-%d").date()
                 except ValueError:
                     parsed_j_date = None
+
+        # Check / Generate Email
+        final_email: str
+        if explicit_email:
+            existing_email = db.query(EmployeeDB).filter(
+                EmployeeDB.Email == explicit_email).first()
+            if existing_email and (not raw_emp_id or existing_email.Emp_ID != int(float(str(raw_emp_id).strip())) if str(raw_emp_id).strip().replace('.','',1).isdigit() else True):
+                final_email = generate_employee_email(
+                    db, f_name, l_name, joining_date=joining_date)
+            else:
+                final_email = explicit_email
+        else:
+            final_email = generate_employee_email(
+                db, f_name, l_name, joining_date=joining_date)
+
+        # Resolve Emp_ID
+        emp_id: int
+        existing = None
+        if raw_emp_id is not None and str(raw_emp_id).strip() != "":
+            try:
+                emp_id = int(float(str(raw_emp_id).strip()))
+                existing = db.query(EmployeeDB).filter(
+                    EmployeeDB.Emp_ID == emp_id).first()
+            except (ValueError, TypeError):
+                emp_id = next_emp_id
+                next_emp_id += 1
+        else:
+            emp_id = next_emp_id
+            next_emp_id += 1
+
+        # If employee already exists: if inactive or active re-import, restore/update them!
+        if existing:
+            if not existing.is_active or is_active:
+                existing.is_active = is_active
+                existing.F_Name = f_name
+                existing.L_Name = l_name
+                existing.Salary = salary
+                existing.Dept_ID = resolved_dept_id
+                existing.Address = address
+                if final_email:
+                    existing.Email = final_email
+                if parsed_j_date:
+                    existing.joining_date = parsed_j_date
+
+                # Log salary update history if salary changed
+                if float(existing.Salary or 0) != salary:
+                    db.add(SalaryHistoryDB(
+                        Emp_ID=emp_id,
+                        old_salary=float(existing.Salary or 0),
+                        new_salary=salary,
+                        changed_by=current_username,
+                    ))
+
+                db.commit()
+                inserted_employees.append({
+                    "Emp_ID": existing.Emp_ID,
+                    "F_Name": existing.F_Name,
+                    "L_Name": existing.L_Name,
+                    "Salary": float(existing.Salary),
+                    "Dept_ID": existing.Dept_ID,
+                    "Department": dept_by_id[resolved_dept_id].Dept_Name,
+                    "Email": existing.Email,
+                    "Address": existing.Address,
+                })
+                continue
+            else:
+                errors.append({
+                    "row": index,
+                    "emp_id": emp_id,
+                    "error": f"Emp_ID {emp_id} already exists in database ({existing.F_Name} {existing.L_Name})"
+                })
+                continue
 
         new_emp = EmployeeDB(
             Emp_ID=emp_id,

@@ -670,6 +670,41 @@ def test_bulk_delete_and_restore_employees():
     assert res_del.json()["affected_count"] == 1
 
 
+def test_reimport_excel_reactivates_inactive_employees():
+    """Verify that importing an employee sheet reactivates previously soft-deleted/inactive employees."""
+    admin = headers_for("admin")
+    dept_res = client.post("/departments", json={"Dept_Name": "ReimportDept", "Budget": 100000}, headers=admin)
+    dept_id = dept_res.json()["Dept_ID"] if dept_res.status_code == 200 else client.get("/departments", headers=admin).json()[0]["Dept_ID"]
+
+    # 1. Create employee 805
+    client.post("/employees", json={
+        "Emp_ID": 805, "F_Name": "RestoreMe", "L_Name": "Tester",
+        "Salary": 55000, "Dept_ID": dept_id, "Address": "Street 805"
+    }, headers=admin)
+
+    # 2. Soft-deactivate employee 805
+    res_deact = client.post("/employees/bulk-deactivate", json=[805], headers=admin)
+    assert res_deact.status_code == 200
+    emp_before = client.get("/employees/805", headers=admin).json()
+    assert emp_before["is_active"] is False
+
+    # 3. Re-import CSV with employee 805
+    csv_data = b"Emp_ID,F_Name,L_Name,Salary,Dept_ID,Address\n805,RestoreMe,Tester,58000," + str(dept_id).encode() + b",Street 805\n"
+    res_import = client.post(
+        "/employees/upload-excel",
+        files={"file": ("restore.csv", csv_data, "text/csv")},
+        headers=admin,
+    )
+    assert res_import.status_code == 200
+    assert res_import.json()["inserted"] == 1
+    assert res_import.json()["skipped"] == 0
+
+    # 4. Verify employee 805 is now active again and details updated
+    emp_after = client.get("/employees/805", headers=admin).json()
+    assert emp_after["is_active"] is True
+    assert float(emp_after["Salary"]) == 58000
+
+
 def test_bulk_delete_via_excel():
     """Verify admin can bulk delete employees by uploading an Excel/CSV file."""
     admin = headers_for("admin")
