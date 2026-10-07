@@ -1,6 +1,12 @@
 // All communication with the FastAPI backend goes through this file.
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+// const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+// const TOKEN_KEY = "emp_token";
+export const BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (typeof window !== "undefined" && window.location.hostname
+    ? `http://${window.location.hostname}:8000`
+    : "http://127.0.0.1:8000");
 const TOKEN_KEY = "emp_token";
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
