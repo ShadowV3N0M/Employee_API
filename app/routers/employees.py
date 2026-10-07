@@ -20,7 +20,11 @@ from app.schemas.employee import BulkEmployeeDelete, Employee, EmployeeUpdate
 from app.services.email_service import generate_employee_email
 from app.services.employee_service import employee_view, SORTABLE_FIELDS
 from app.services.excel_service import (
+    bulk_activate_from_spreadsheet,
+    bulk_deactivate_from_spreadsheet,
+    bulk_delete_from_spreadsheet,
     export_employees_to_csv,
+    generate_identifier_csv_template,
     generate_sample_csv_template,
     import_employees_from_records,
     parse_ids_or_emails_for_deletion,
@@ -150,14 +154,24 @@ def get_employees(
 
 
 @router.get("/template")
-def download_template():
-    """Download a CSV sample template showing supported columns."""
-    csv_data = generate_sample_csv_template()
+def download_template(template_type: str = "full"):
+    """
+    Download a sample CSV template showing supported columns.
+    - 'full' / 'add': Complete employee addition template with F_Name, L_Name, Salary, Dept, etc.
+    - 'identifiers' / 'manage': Identifier template with Emp_ID, Email, Username, Notes.
+    """
+    if template_type.lower() in ("identifiers", "manage", "id", "status"):
+        csv_data = generate_identifier_csv_template()
+        filename = "employee_identifier_template.csv"
+    else:
+        csv_data = generate_sample_csv_template()
+        filename = "employee_template.csv"
+
     return Response(
         content=csv_data,
         media_type="text/csv",
         headers={
-            "Content-Disposition": "attachment; filename=employee_template.csv",
+            "Content-Disposition": f"attachment; filename={filename}",
             "Access-Control-Expose-Headers": "Content-Disposition",
         }
     )
@@ -419,6 +433,88 @@ def bulk_restore_employees(
             status_code=500, detail=f"Database error: {str(e)}")
 
 
+@router.post("/bulk-activate-excel")
+@limiter.limit("10/minute")
+async def bulk_activate_employees_via_excel(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin),
+):
+    """
+    Admin only. Bulk activate / restore employees and linked user accounts using an uploaded Excel (.xlsx, .xls) or CSV file.
+    The spreadsheet may contain 'Emp_ID', 'Email', or 'Username' columns.
+    """
+    filename = file.filename or "activation_list.xlsx"
+    ext = filename.lower().split(".")[-1] if "." in filename else ""
+    if ext not in ("xlsx", "xls", "csv"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format '.{ext}'. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file."
+        )
+
+    try:
+        file_bytes = await file.read()
+        if not file_bytes:
+            raise HTTPException(
+                status_code=400, detail="Uploaded file is empty.")
+
+        result = bulk_activate_from_spreadsheet(
+            db, file_bytes, filename, current_user.username
+        )
+        return result
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Error processing activation file: {str(e)}"
+        )
+
+
+@router.post("/bulk-deactivate-excel")
+@limiter.limit("10/minute")
+async def bulk_deactivate_employees_via_excel(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin),
+):
+    """
+    Admin only. Bulk soft-deactivate employees and linked user accounts using an uploaded Excel (.xlsx, .xls) or CSV file.
+    The spreadsheet may contain 'Emp_ID', 'Email', or 'Username' columns.
+    """
+    filename = file.filename or "deactivation_list.xlsx"
+    ext = filename.lower().split(".")[-1] if "." in filename else ""
+    if ext not in ("xlsx", "xls", "csv"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported format '.{ext}'. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file."
+        )
+
+    try:
+        file_bytes = await file.read()
+        if not file_bytes:
+            raise HTTPException(
+                status_code=400, detail="Uploaded file is empty.")
+
+        result = bulk_deactivate_from_spreadsheet(
+            db, file_bytes, filename, current_user.username
+        )
+        return result
+    except HTTPException:
+        raise
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, detail=f"Error processing deactivation file: {str(e)}"
+        )
+
+
 @router.post("/bulk-delete-excel")
 @limiter.limit("10/minute")
 async def bulk_delete_employees_via_excel(
@@ -429,15 +525,15 @@ async def bulk_delete_employees_via_excel(
     current_user: UserDB = Depends(require_admin),
 ):
     """
-    Admin only. Bulk delete or deactivate employees using an uploaded Excel (.xlsx) or CSV file.
-    The spreadsheet may contain an 'Emp_ID' or 'Email' column (or a single column of IDs/Emails).
+    Admin only. Bulk delete or deactivate employees using an uploaded Excel (.xlsx, .xls) or CSV file.
+    The spreadsheet may contain 'Emp_ID', 'Email', or 'Username' columns.
     """
     filename = file.filename or "deletion_list.xlsx"
     ext = filename.lower().split(".")[-1] if "." in filename else ""
     if ext not in ("xlsx", "xls", "csv"):
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported format '.{ext}'. Please upload an Excel (.xlsx) or CSV (.csv) file."
+            detail=f"Unsupported format '.{ext}'. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file."
         )
 
     try:
@@ -446,57 +542,19 @@ async def bulk_delete_employees_via_excel(
             raise HTTPException(
                 status_code=400, detail="Uploaded file is empty.")
 
-        emp_ids, emails = parse_ids_or_emails_for_deletion(
-            file_bytes, filename)
-        if not emp_ids and not emails:
-            raise HTTPException(
-                status_code=400,
-                detail="No employee IDs or emails found in the uploaded file."
-            )
-
-        from sqlalchemy import or_
-
-        conditions = []
-        if emp_ids:
-            conditions.append(EmployeeDB.Emp_ID.in_(emp_ids))
-        if emails:
-            conditions.append(EmployeeDB.Email.in_(emails))
-
-        employees = db.query(EmployeeDB).filter(or_(*conditions)).all()
-        matched_ids = [e.Emp_ID for e in employees]
-
-        if not employees:
-            return {
-                "message": "No matching employees found in database to delete.",
-                "affected_count": 0,
-                "parsed_identifiers": {"ids_count": len(emp_ids), "emails_count": len(emails)},
-            }
-
-        if hard_delete:
-            db.query(SalaryHistoryDB).filter(SalaryHistoryDB.Emp_ID.in_(
-                matched_ids)).delete(synchronize_session=False)
-            db.query(EmployeeDB).filter(EmployeeDB.Emp_ID.in_(
-                matched_ids)).delete(synchronize_session=False)
-            action = "permanently deleted"
-        else:
-            for emp in employees:
-                emp.is_active = False
-            action = "deactivated (soft delete)"
-
-        db.commit()
-
-        return {
-            "message": f"Successfully {action} {len(matched_ids)} employee(s) from {filename}",
-            "affected_count": len(matched_ids),
-            "affected_ids": matched_ids,
-            "hard_delete": hard_delete,
-        }
+        result = bulk_delete_from_spreadsheet(
+            db, file_bytes, filename, hard_delete, current_user.username
+        )
+        return result
     except HTTPException:
         raise
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         db.rollback()
         raise HTTPException(
-            status_code=500, detail=f"Error processing deletion file: {str(e)}")
+            status_code=500, detail=f"Error processing deletion file: {str(e)}"
+        )
 
 
 @router.get("/{emp_id}")

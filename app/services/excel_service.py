@@ -15,7 +15,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.department import DepartmentDB
-from app.models.employee import EmployeeDB, SalaryHistoryDB
+from app.models.employee import EmployeeDB, SalaryHistoryDB, EmergencyContactDB
+from app.models.user import UserDB
 from app.services.email_service import generate_employee_email
 
 
@@ -63,6 +64,13 @@ HEADER_FIELD_MAP = {
     "active": "is_active",
     "isactive": "is_active",
     "status": "is_active",
+    "username": "Username",
+    "user": "Username",
+    "login": "Username",
+    "uname": "Username",
+    "account": "Username",
+    "action": "action",
+    "operation": "action",
 }
 
 
@@ -225,16 +233,67 @@ def parse_xlsx_fallback(file_bytes: bytes) -> List[Dict[str, Any]]:
             return records
 
 
+def parse_xls_with_xlrd(file_bytes: bytes) -> Optional[List[Dict[str, Any]]]:
+    """Attempt parsing legacy Excel .xls (BIFF8) files using xlrd."""
+    try:
+        import xlrd
+        wb = xlrd.open_workbook(file_contents=file_bytes)
+        ws = wb.sheet_by_index(0)
+        if ws.nrows == 0:
+            return []
+
+        raw_headers = [str(ws.cell_value(0, c)).strip() for c in range(ws.ncols)]
+        records = []
+        for r in range(1, ws.nrows):
+            row_dict = {}
+            has_val = False
+            for c, header in enumerate(raw_headers):
+                if not header:
+                    continue
+                cell_type = ws.cell_type(r, c)
+                val = ws.cell_value(r, c)
+                if cell_type == xlrd.XL_CELL_DATE:
+                    try:
+                        date_tuple = xlrd.xldate_as_tuple(val, wb.datemode)
+                        val = f"{date_tuple[0]:04d}-{date_tuple[1]:02d}-{date_tuple[2]:02d}"
+                    except Exception:
+                        pass
+                elif cell_type == xlrd.XL_CELL_NUMBER:
+                    if float(val).is_integer():
+                        val = int(val)
+                elif cell_type == xlrd.XL_CELL_BOOLEAN:
+                    val = bool(val)
+
+                if str(val).strip() != "":
+                    has_val = True
+                row_dict[header] = val
+            if has_val:
+                records.append(row_dict)
+        return records
+    except Exception:
+        return None
+
+
 def parse_spreadsheet_data(file_bytes: bytes, filename: str) -> List[Dict[str, Any]]:
     """Parse Excel (.xlsx/.xls) or CSV bytes into a list of row dictionaries."""
     lower_name = filename.lower()
     if lower_name.endswith(".csv"):
         return parse_csv_bytes(file_bytes)
 
-    # Try openpyxl first
+    if lower_name.endswith(".xls") and not lower_name.endswith(".xlsx"):
+        xls_res = parse_xls_with_xlrd(file_bytes)
+        if xls_res is not None:
+            return xls_res
+
+    # Try openpyxl first for .xlsx
     res = parse_xlsx_with_openpyxl(file_bytes)
     if res is not None:
         return res
+
+    # Try xlrd in case the file content is actually .xls format
+    xls_res = parse_xls_with_xlrd(file_bytes)
+    if xls_res is not None:
+        return xls_res
 
     # Fallback to pure Python zip/xml
     return parse_xlsx_fallback(file_bytes)
@@ -333,10 +392,15 @@ def import_employees_from_records(
             })
             continue
 
-        # Parse active status
+        # Parse active status / action
         is_active = True
         raw_active = row.get("is_active")
-        if raw_active is not None and str(raw_active).strip().lower() in ("false", "0", "no", "inactive"):
+        raw_action = str(row.get("action") or "").strip().lower()
+        if raw_action in ("deactivate", "inactive", "disable", "suspend"):
+            is_active = False
+        elif raw_action in ("activate", "active", "enable", "restore"):
+            is_active = True
+        elif raw_active is not None and str(raw_active).strip().lower() in ("false", "0", "no", "inactive"):
             is_active = False
 
         # Parse joining date
@@ -403,6 +467,13 @@ def import_employees_from_records(
                         new_salary=salary,
                         changed_by=current_username,
                     ))
+
+                # Also synchronize linked user account if exists
+                linked_user = db.query(UserDB).filter(
+                    (UserDB.emp_id == existing.Emp_ID) | (UserDB.email == existing.Email)
+                ).first()
+                if linked_user:
+                    linked_user.is_active = is_active
 
                 db.commit()
                 inserted_employees.append({
@@ -525,18 +596,30 @@ def generate_sample_csv_template() -> str:
     return output.getvalue()
 
 
-def parse_ids_or_emails_for_deletion(file_bytes: bytes, filename: str) -> Tuple[List[int], List[str]]:
+def generate_identifier_csv_template() -> str:
+    """Returns sample CSV template for bulk activate, deactivate, or delete operations."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Emp_ID", "Email", "Username", "Notes"])
+    writer.writerow(["101", "alice.smith@laesfera.co", "alice", "Operations Team"])
+    writer.writerow(["102", "bob.jones@laesfera.co", "bob", "Engineering"])
+    writer.writerow(["103", "", "priya", "Support"])
+    return output.getvalue()
+
+
+def parse_identifiers_from_spreadsheet(file_bytes: bytes, filename: str) -> Dict[str, Any]:
     """
-    Extracts employee IDs and emails from an uploaded spreadsheet for batch deletion.
-    Handles tables with headers ('Emp_ID', 'ID', 'Email', etc.) or single-column lists.
+    Extracts employee IDs, emails, and usernames from an uploaded spreadsheet (.xlsx, .xls, .csv).
+    Handles tables with headers ('Emp_ID', 'ID', 'Email', 'Username', etc.) or single-column lists.
     """
     records = parse_spreadsheet_data(file_bytes, filename)
     emp_ids: List[int] = []
     emails: List[str] = []
+    usernames: List[str] = []
 
     for row in records:
         for k, v in row.items():
-            if not v:
+            if v is None:
                 continue
             norm = normalize_header(k)
             str_val = str(v).strip()
@@ -548,11 +631,13 @@ def parse_ids_or_emails_for_deletion(file_bytes: bytes, filename: str) -> Tuple[
                     emp_ids.append(int(float(str_val)))
                 except (ValueError, TypeError):
                     pass
-            elif norm in ("email", "mail", "emailid"):
+            elif norm in ("email", "mail", "emailid", "useremail"):
                 if "@" in str_val:
                     emails.append(str_val.lower())
+            elif norm in ("username", "user", "login", "uname", "account"):
+                usernames.append(str_val)
             else:
-                # Fallback: check value format if column header isn't standard
+                # Fallback format checking when header is ambiguous (e.g. single-column lists)
                 if "@" in str_val:
                     emails.append(str_val.lower())
                 elif str_val.isdigit():
@@ -560,7 +645,291 @@ def parse_ids_or_emails_for_deletion(file_bytes: bytes, filename: str) -> Tuple[
 
     unique_ids = list(dict.fromkeys(emp_ids))
     unique_emails = list(dict.fromkeys(emails))
-    return unique_ids, unique_emails
+    unique_usernames = list(dict.fromkeys(usernames))
+    return {
+        "emp_ids": unique_ids,
+        "emails": unique_emails,
+        "usernames": unique_usernames,
+        "total_rows": len(records),
+    }
+
+
+def parse_ids_or_emails_for_deletion(file_bytes: bytes, filename: str) -> Tuple[List[int], List[str]]:
+    """Legacy compatibility helper."""
+    parsed = parse_identifiers_from_spreadsheet(file_bytes, filename)
+    return parsed["emp_ids"], parsed["emails"]
+
+
+def bulk_activate_from_spreadsheet(
+    db: Session,
+    file_bytes: bytes,
+    filename: str,
+    current_username: str,
+) -> Dict[str, Any]:
+    """
+    Admin only. Bulk activate / restore employees and linked user accounts from an uploaded spreadsheet (.xlsx, .xls, .csv).
+    Matches records by Emp_ID, Email, or Username.
+    """
+    parsed = parse_identifiers_from_spreadsheet(file_bytes, filename)
+    emp_ids = parsed["emp_ids"]
+    emails = parsed["emails"]
+    usernames = parsed["usernames"]
+
+    if not emp_ids and not emails and not usernames:
+        raise ValueError("No employee IDs, emails, or usernames found in the uploaded file.")
+
+    from sqlalchemy import or_
+
+    emp_conditions = []
+    if emp_ids:
+        emp_conditions.append(EmployeeDB.Emp_ID.in_(emp_ids))
+    if emails:
+        emp_conditions.append(EmployeeDB.Email.in_(emails))
+
+    if usernames:
+        users_with_emp = db.query(UserDB).filter(UserDB.username.in_(usernames)).all()
+        user_emp_ids = [u.emp_id for u in users_with_emp if u.emp_id is not None]
+        if user_emp_ids:
+            emp_conditions.append(EmployeeDB.Emp_ID.in_(user_emp_ids))
+
+    employees = db.query(EmployeeDB).filter(or_(*emp_conditions)).all() if emp_conditions else []
+    matched_emp_ids = [e.Emp_ID for e in employees]
+    matched_emails = [e.Email.lower() for e in employees if e.Email]
+
+    for emp in employees:
+        emp.is_active = True
+
+    user_conditions = []
+    if matched_emp_ids:
+        user_conditions.append(UserDB.emp_id.in_(matched_emp_ids))
+    if matched_emails:
+        user_conditions.append(UserDB.email.in_(matched_emails))
+    if usernames:
+        user_conditions.append(UserDB.username.in_(usernames))
+
+    users = db.query(UserDB).filter(or_(*user_conditions)).all() if user_conditions else []
+    matched_usernames = [u.username for u in users]
+    for u in users:
+        u.is_active = True
+
+    db.commit()
+
+    found_emp_ids_set = set(matched_emp_ids)
+    found_emails_set = set(matched_emails) | {u.email.lower() for u in users if u.email}
+    found_usernames_set = set(matched_usernames)
+
+    not_found = []
+    for eid in emp_ids:
+        if eid not in found_emp_ids_set:
+            not_found.append(f"Emp_ID {eid}")
+    for eml in emails:
+        if eml.lower() not in found_emails_set:
+            not_found.append(f"Email {eml}")
+    for unm in usernames:
+        if unm not in found_usernames_set:
+            not_found.append(f"Username '{unm}'")
+
+    total_affected = len(matched_emp_ids)
+    return {
+        "message": f"Successfully activated {total_affected} employee(s) and {len(users)} user account(s) from {filename}",
+        "affected_count": total_affected,
+        "affected_ids": matched_emp_ids,
+        "users_affected_count": len(users),
+        "affected_usernames": matched_usernames,
+        "not_found": not_found,
+        "filename": filename,
+    }
+
+
+def bulk_deactivate_from_spreadsheet(
+    db: Session,
+    file_bytes: bytes,
+    filename: str,
+    current_username: str,
+) -> Dict[str, Any]:
+    """
+    Admin only. Bulk soft-deactivate employees and linked user accounts from an uploaded spreadsheet (.xlsx, .xls, .csv).
+    Matches records by Emp_ID, Email, or Username.
+    """
+    parsed = parse_identifiers_from_spreadsheet(file_bytes, filename)
+    emp_ids = parsed["emp_ids"]
+    emails = parsed["emails"]
+    usernames = parsed["usernames"]
+
+    if not emp_ids and not emails and not usernames:
+        raise ValueError("No employee IDs, emails, or usernames found in the uploaded file.")
+
+    from sqlalchemy import or_
+
+    emp_conditions = []
+    if emp_ids:
+        emp_conditions.append(EmployeeDB.Emp_ID.in_(emp_ids))
+    if emails:
+        emp_conditions.append(EmployeeDB.Email.in_(emails))
+
+    if usernames:
+        users_with_emp = db.query(UserDB).filter(UserDB.username.in_(usernames)).all()
+        user_emp_ids = [u.emp_id for u in users_with_emp if u.emp_id is not None]
+        if user_emp_ids:
+            emp_conditions.append(EmployeeDB.Emp_ID.in_(user_emp_ids))
+
+    employees = db.query(EmployeeDB).filter(or_(*emp_conditions)).all() if emp_conditions else []
+    matched_emp_ids = [e.Emp_ID for e in employees]
+    matched_emails = [e.Email.lower() for e in employees if e.Email]
+
+    for emp in employees:
+        emp.is_active = False
+
+    user_conditions = []
+    if matched_emp_ids:
+        user_conditions.append(UserDB.emp_id.in_(matched_emp_ids))
+    if matched_emails:
+        user_conditions.append(UserDB.email.in_(matched_emails))
+    if usernames:
+        user_conditions.append(UserDB.username.in_(usernames))
+
+    users = db.query(UserDB).filter(or_(*user_conditions)).all() if user_conditions else []
+    matched_usernames = [u.username for u in users]
+    for u in users:
+        if u.username == current_username:
+            continue
+        u.is_active = False
+
+    db.commit()
+
+    found_emp_ids_set = set(matched_emp_ids)
+    found_emails_set = set(matched_emails) | {u.email.lower() for u in users if u.email}
+    found_usernames_set = set(matched_usernames)
+
+    not_found = []
+    for eid in emp_ids:
+        if eid not in found_emp_ids_set:
+            not_found.append(f"Emp_ID {eid}")
+    for eml in emails:
+        if eml.lower() not in found_emails_set:
+            not_found.append(f"Email {eml}")
+    for unm in usernames:
+        if unm not in found_usernames_set:
+            not_found.append(f"Username '{unm}'")
+
+    total_affected = len(matched_emp_ids)
+    return {
+        "message": f"Successfully deactivated {total_affected} employee(s) and {len(users)} user account(s) from {filename}",
+        "affected_count": total_affected,
+        "affected_ids": matched_emp_ids,
+        "users_affected_count": len(users),
+        "affected_usernames": matched_usernames,
+        "not_found": not_found,
+        "filename": filename,
+    }
+
+
+def bulk_delete_from_spreadsheet(
+    db: Session,
+    file_bytes: bytes,
+    filename: str,
+    hard_delete: bool,
+    current_username: str,
+) -> Dict[str, Any]:
+    """
+    Admin only. Bulk delete or deactivate employees and linked users from an uploaded spreadsheet (.xlsx, .xls, .csv).
+    - If hard_delete=True, removes records permanently (including salary history, emergency contacts, unlinking user accounts).
+    - If hard_delete=False, soft-deactivates the records.
+    """
+    parsed = parse_identifiers_from_spreadsheet(file_bytes, filename)
+    emp_ids = parsed["emp_ids"]
+    emails = parsed["emails"]
+    usernames = parsed["usernames"]
+
+    if not emp_ids and not emails and not usernames:
+        raise ValueError("No employee IDs, emails, or usernames found in the uploaded file.")
+
+    from sqlalchemy import or_
+
+    emp_conditions = []
+    if emp_ids:
+        emp_conditions.append(EmployeeDB.Emp_ID.in_(emp_ids))
+    if emails:
+        emp_conditions.append(EmployeeDB.Email.in_(emails))
+
+    if usernames:
+        users_with_emp = db.query(UserDB).filter(UserDB.username.in_(usernames)).all()
+        user_emp_ids = [u.emp_id for u in users_with_emp if u.emp_id is not None]
+        if user_emp_ids:
+            emp_conditions.append(EmployeeDB.Emp_ID.in_(user_emp_ids))
+
+    employees = db.query(EmployeeDB).filter(or_(*emp_conditions)).all() if emp_conditions else []
+    matched_ids = [e.Emp_ID for e in employees]
+    matched_emails = [e.Email.lower() for e in employees if e.Email]
+
+    user_conditions = []
+    if matched_ids:
+        user_conditions.append(UserDB.emp_id.in_(matched_ids))
+    if matched_emails:
+        user_conditions.append(UserDB.email.in_(matched_emails))
+    if usernames:
+        user_conditions.append(UserDB.username.in_(usernames))
+
+    users = db.query(UserDB).filter(or_(*user_conditions)).all() if user_conditions else []
+    matched_usernames = [u.username for u in users]
+
+    if not employees and not users:
+        return {
+            "message": "No matching employees or user accounts found in database to delete.",
+            "affected_count": 0,
+            "users_affected_count": 0,
+            "not_found": [f"Emp_ID {x}" for x in emp_ids] + [f"Email {x}" for x in emails] + [f"Username '{x}'" for x in usernames],
+            "filename": filename,
+            "hard_delete": hard_delete,
+        }
+
+    if hard_delete:
+        if matched_ids:
+            db.query(SalaryHistoryDB).filter(SalaryHistoryDB.Emp_ID.in_(matched_ids)).delete(synchronize_session=False)
+            db.query(EmergencyContactDB).filter(EmergencyContactDB.emp_id.in_(matched_ids)).delete(synchronize_session=False)
+            db.query(UserDB).filter(UserDB.emp_id.in_(matched_ids)).update({UserDB.emp_id: None}, synchronize_session=False)
+            db.query(EmployeeDB).filter(EmployeeDB.Emp_ID.in_(matched_ids)).delete(synchronize_session=False)
+
+        del_user_ids = [u.id for u in users if u.username != current_username and u.emp_id is None]
+        if del_user_ids:
+            db.query(UserDB).filter(UserDB.id.in_(del_user_ids)).delete(synchronize_session=False)
+
+        action = "permanently deleted"
+    else:
+        for emp in employees:
+            emp.is_active = False
+        for u in users:
+            if u.username != current_username:
+                u.is_active = False
+        action = "deactivated (soft delete)"
+
+    db.commit()
+
+    found_emp_ids_set = set(matched_ids)
+    found_emails_set = set(matched_emails) | {u.email.lower() for u in users if u.email}
+    found_usernames_set = set(matched_usernames)
+
+    not_found = []
+    for eid in emp_ids:
+        if eid not in found_emp_ids_set:
+            not_found.append(f"Emp_ID {eid}")
+    for eml in emails:
+        if eml.lower() not in found_emails_set:
+            not_found.append(f"Email {eml}")
+    for unm in usernames:
+        if unm not in found_usernames_set:
+            not_found.append(f"Username '{unm}'")
+
+    return {
+        "message": f"Successfully {action} {len(matched_ids)} employee(s) and {len(users)} user account(s) from {filename}",
+        "affected_count": len(matched_ids),
+        "affected_ids": matched_ids,
+        "users_affected_count": len(users),
+        "affected_usernames": matched_usernames,
+        "not_found": not_found,
+        "hard_delete": hard_delete,
+        "filename": filename,
+    }
 
 
 def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int, str]) -> str:

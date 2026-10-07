@@ -650,6 +650,12 @@ def test_upload_employees_csv_admin_only():
 def test_bulk_delete_and_restore_employees():
     """Verify bulk deactivation, restoration, and permanent deletion."""
     admin = headers_for("admin")
+    dept_res = client.post("/departments", json={"Dept_Name": "BulkDept", "Budget": 100000}, headers=admin)
+    dept_id = dept_res.json()["Dept_ID"] if dept_res.status_code == 200 else client.get("/departments", headers=admin).json()[0]["Dept_ID"]
+    client.post("/employees", json={
+        "Emp_ID": 801, "F_Name": "BulkTest", "L_Name": "User",
+        "Salary": 50000, "Dept_ID": dept_id, "Address": "Bulk Test Address"
+    }, headers=admin)
 
     # Deactivate 801
     res_deact = client.post("/employees/bulk-deactivate",
@@ -727,6 +733,83 @@ def test_bulk_delete_via_excel():
     # Verify 802 is deleted
     get_res = client.get("/employees/802", headers=admin)
     assert get_res.status_code == 404
+
+
+def test_bulk_activate_and_deactivate_via_excel():
+    """Verify admin can bulk activate and deactivate employees and users via spreadsheet."""
+    admin = headers_for("admin")
+    dept_id = client.get("/departments", headers=admin).json()[0]["Dept_ID"]
+
+    # Create employee 810
+    client.post("/employees", json={
+        "Emp_ID": 810, "F_Name": "ActDeact", "L_Name": "Test",
+        "Salary": 60000, "Dept_ID": dept_id, "Address": "Street 810"
+    }, headers=admin)
+
+    # 1. Bulk deactivate via CSV
+    deact_csv = b"Emp_ID\n810\n"
+    res_deact = client.post(
+        "/employees/bulk-deactivate-excel",
+        files={"file": ("deact.csv", deact_csv, "text/csv")},
+        headers=admin,
+    )
+    assert res_deact.status_code == 200
+    assert res_deact.json()["affected_count"] == 1
+    assert 810 in res_deact.json()["affected_ids"]
+
+    emp_deact = client.get("/employees/810", headers=admin).json()
+    assert emp_deact["is_active"] is False
+
+    # 2. Bulk activate via CSV
+    act_csv = b"Emp_ID\n810\n"
+    res_act = client.post(
+        "/employees/bulk-activate-excel",
+        files={"file": ("act.csv", act_csv, "text/csv")},
+        headers=admin,
+    )
+    assert res_act.status_code == 200
+    assert res_act.json()["affected_count"] == 1
+    assert 810 in res_act.json()["affected_ids"]
+
+    emp_act = client.get("/employees/810", headers=admin).json()
+    assert emp_act["is_active"] is True
+
+
+def test_excel_templates_download():
+    """Verify download of full add template and identifier management template."""
+    # 1. Full add template
+    res_full = client.get("/employees/template?template_type=full")
+    assert res_full.status_code == 200
+    assert "F_Name,L_Name,Salary,Department" in res_full.text
+
+    # 2. Identifier template
+    res_id = client.get("/employees/template?template_type=identifiers")
+    assert res_id.status_code == 200
+    assert "Emp_ID,Email,Username" in res_id.text
+
+
+def test_xlsx_support():
+    """Verify that .xlsx files are handled properly in bulk upload."""
+    import openpyxl
+    from io import BytesIO
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Emp_ID", "F_Name", "L_Name", "Salary", "Department", "Address"])
+    ws.append([815, "SheetUser", "Tester", 72000, "Engineering", "Suite 815"])
+    bio = BytesIO()
+    wb.save(bio)
+    xlsx_bytes = bio.getvalue()
+
+    admin = headers_for("admin")
+    res = client.post(
+        "/employees/upload-excel",
+        files={"file": ("batch.xlsx", xlsx_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        headers=admin,
+    )
+    assert res.status_code == 200
+    assert res.json()["inserted"] == 1
+    assert res.json()["employees"][0]["Emp_ID"] == 815
 
 
 def test_export_employees_csv():
