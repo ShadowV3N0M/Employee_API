@@ -37,5 +37,5 @@ _raw_cors = os.getenv(
 CORS_ORIGINS = [origin.strip()
                 for origin in _raw_cors.split(",") if origin.strip()]
 
-# Rate Limiter
+# Rate Limiter for this application
 limiter = Limiter(key_func=get_remote_address)
