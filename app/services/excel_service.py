@@ -537,8 +537,8 @@ def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int,
     - Manager: Limited operational dataset (13 attributes: ID, Name, Email, Dept ID, Department,
       Address, Joining Date, Status, Personal Phone, Blood Group, Primary Emergency Contact Name/Phone —
       strictly excluding confidential company Salary, private DOB/marital status, and internal timestamps).
-    - User/Employee: Minimum public directory dataset (7 attributes: ID, Name, Email, Department,
-      Joining Date, Status — strictly excluding compensation, address, personal phone, blood group,
+    - User/Employee: Minimum public directory dataset (6 attributes: ID, Name, Email, Department,
+      Personal Phone — strictly excluding compensation, address, status, blood group,
       DOB, marital status, emergency contacts, and timestamps).
     """
     output = io.StringIO()
@@ -560,7 +560,7 @@ def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int,
         ]
     else:
         headers = [
-            "Emp_ID", "F_Name", "L_Name", "Email", "Department", "Joining_Date", "Status"
+            "Emp_ID", "F_Name", "L_Name", "Email", "Department", "Personal_Phone"
         ]
 
     writer.writerow(headers)
@@ -632,15 +632,14 @@ def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int,
                 ec_phone,
             ])
         else:
-            # Regular user / employee role: minimum public directory data only
+            # Regular user / employee role: basic contact directory data only
             writer.writerow([
                 emp.Emp_ID,
                 emp.F_Name,
                 emp.L_Name,
                 emp.Email or "",
                 dept_name,
-                j_date_val,
-                status,
+                emp.personal_phone or "",
             ])
 
     return output.getvalue()

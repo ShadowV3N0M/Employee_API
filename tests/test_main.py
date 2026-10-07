@@ -696,15 +696,16 @@ def test_bulk_delete_via_excel():
 
 def test_export_employees_csv():
     """Verify 3-tier CSV export boundaries: full for admin, limited for manager, minimum for user."""
-    # 1. User export: minimum 7 public directory fields
+    # 1. User export: 6 basic contact fields (Emp_ID, F_Name, L_Name, Email, Department, Personal_Phone)
     user = headers_for("user")
     res_user = client.get("/employees/export", headers=user)
     assert res_user.status_code == 200
     user_header_line = res_user.text.splitlines()[0]
-    assert user_header_line == "Emp_ID,F_Name,L_Name,Email,Department,Joining_Date,Status"
+    assert user_header_line == "Emp_ID,F_Name,L_Name,Email,Department,Personal_Phone"
     assert "Salary" not in res_user.text
-    assert "Personal_Phone" not in res_user.text
+    assert "Address" not in res_user.text
     assert "Emergency_Contact" not in res_user.text
+    assert "Personal_Phone" in res_user.text
 
     # User cannot filter by salary
     assert client.get("/employees/export?min_salary=50000", headers=user).status_code == 403
