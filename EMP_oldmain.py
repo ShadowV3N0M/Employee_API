@@ -3,7 +3,6 @@
 # 0.0.1 - 2026-08-23
 # -----------------------------------------------------------------
 
-
 import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -140,13 +139,15 @@ def generate_employee_email(db: Session, f_name: str, l_name: str) -> str:
     Builds sagar.p@laesfera.co style emails from first name + last initial.
 
     If that collides with an existing employee, extends the last-name
-    portion one letter at a time (p -> pa -> pat -> ...) until unique,
+    portion one letter at a time (p -> pa -> pat -> ...) until unique name occurs.
     e.g. Parth Patil vs Parth Pandey becomes parth.pat vs parth.pan
     rather than parth.p vs parth.p2.
 
     Only if the FULL last name is still not unique (two employees with
     the exact same first + last name) does it fall back to a numeric
-    suffix on the full name, e.g. parth.patil2@laesfera.co.
+    suffix on the full name, e.g. parth.patil2@laesfera.co. based on Creation_date/Joining_date
+    the first employee will get the base email,
+    and the second will get the numeric suffix.
     """
 
     first = f_name.strip().lower().replace(" ", "")
