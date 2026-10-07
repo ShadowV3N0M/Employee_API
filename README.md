@@ -893,6 +893,39 @@ git reset --soft HEAD~1
   - **Manager Detail Modal Integration:** `EmployeeDetailModal.jsx` displays blood group badges, personal mobile phone, and the full emergency contacts list for rapid medical/incident outreach.
   - **Navigation Integration:** Added `👤 My Profile` in the collapsible sidebar and directly at the top of the topbar user profile dropdown menu.
 
+### 23. PDF Export & Official Company Reports Engine
+- **ReportLab PDF Rendering Pipelines (`app/services/pdf_service.py`):**
+  - **Two-Pass `NumberedCanvas` Engine:** Automatically computes total document pages and renders running top rule on secondary pages along with formal bottom footer (`Confidential • La Esfera Technologies Pvt. Ltd. • Page X of Y`).
+  - **Indian Currency & Numbering Notation:** Converts numbers into Indian formatted strings (`Rs. 7,50,000.00`) and Indian currency words in Lakhs/Crores (`Rupees Seven Lakh Fifty Thousand Only`).
+  - **Official Payslip Voucher (`GET /reports/payslip/{emp_id}/pdf`, `GET /reports/my-payslip/pdf`):**
+    - High-fidelity portrait A4 payslip with corporate branding, CIN, and employee identification grid.
+    - Working days and attendance summary banner (Days in month, Days paid, Loss of pay).
+    - Side-by-side Earnings table (Basic 50%, HRA 40/50%, Special Allowance, Conveyance, Medical) vs. Statutory Deductions (EPF 12%, Professional Tax, ESI 0.75%, TDS Income Tax).
+    - Prominent Net Salary Payable banner with figure and words in Indian numbering.
+    - Annual CTC overview and digital verification signature block.
+    - Role-aware: Administrators and managers can generate for any employee; employees can self-serve their own payslip voucher.
+  - **Employee Directory & Headcount Report (`GET /reports/employees/pdf`):**
+    - Executive landscape A4 multi-column layout formatted for HR printing.
+    - Top KPI cards (Total Headcount, Active Personnel, Inactive, Total Departments).
+    - Department, status (active/inactive/all), and search keyword filtration with filter criterion banner.
+    - Privilege masking: Manager/Admin view includes compensation totals and individual CTC; regular users view public directory columns only.
+  - **Department Budget Utilization & Expense Statement (`GET /reports/departments/pdf`):**
+    - Fiscal statement detailing headcount, annual payroll expenditure, allocated budgets, and budget consumption percentages.
+    - Color-coded audit status pills (Normal, Near Cap, Exceeded).
+    - Overall company-wide budget consumption index and financial observations summary.
+  - **Salary Revision Notice & Increment Audit Letter (`GET /reports/salary-revisions/{emp_id}/pdf`, `GET /reports/my-salary-revision/pdf`):**
+    - Formal corporate letterhead with unique reference number, date, and employee address block.
+    - Formal notice of compensation amendment with new CTC and net increment percentage.
+    - Chronological compensation audit log table detailing every historical change in `salary_history` (Date, Previous Salary, Revised Salary, Increment Amount, Authorized By).
+    - Confidentiality clause and executive signature approval block.
+- **Frontend Integration (`Reports.jsx`, `api.js`):**
+  - **Reports Hub (`/reports`):** Dedicated page with tabbed controls for Payslip Voucher, Employee Directory, Department Budget, and Salary Revision Letter with live preview in a new tab (`previewPdf`) and direct download (`downloadPdf`).
+  - **Directory Toolbar Integration (`Employees.jsx`):** One-click `📑 Export PDF` button in the directory toolbar exporting the currently filtered employee roster.
+  - **Employee Detail Modal (`EmployeeDetailModal.jsx`):** Quick actions to generate `🧾 Payslip (PDF)` and `📄 Revision Letter (PDF)` directly from an employee's profile popup.
+  - **Salary Calculator (`SalaryCalculator.jsx`):** `📑 Download Official PDF` button inside the simulation modal to export the modeled payslip voucher.
+  - **Department Management (`Departments.jsx`):** Direct `📑 Budget PDF Report` button for executive leadership.
+  - **Self-Service Profile (`Profile.jsx`):** Quick download buttons for `🧾 My Payslip (PDF)` and `📄 Compensation Letter (PDF)`.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -915,7 +948,7 @@ git reset --soft HEAD~1
 - [x] **Universal Sort By & Filter By Engine Across Every Page & Modal** - Dedicated Sort By dropdown popover with direction toggles, clickable table headers, and Filter By button with active count pills across Employees, Departments, Users, Analytics, and Salary Calculator roster
 - [x] **Show / Hide Password Visibility Toggle** - Interactive eye icon toggles password visibility (plain text vs masked) on Login and Registration forms with theme-adaptive styling and accessibility support
 - [x] **Admin Permanent Employee Deletion & Auto-Resequencing of Emp_IDs** - Admin can permanently delete an employee directly from the edit form; cascades salary history deletion and automatically decrements all subsequent Emp_IDs by 1 in an atomic transaction so employee IDs remain strictly consecutive without gaps
-- [ ] **PDF export & official report generator** - Official payslip vouchers, department expense statements, and employee directories via `reportlab`/`weasyprint`
+- [x] **PDF export & official report generator** - Official payslip vouchers, department expense statements, employee directories, and salary revision letters via `reportlab` with running headers, footers, and two-pass page numbering
 - [ ] **Employee attendance & time-tracking module** - Real-time clock-in/out, punch logs, work hour analytics, and regularization requests
 - [ ] **Leave & time-off management system** - Accrual balances, multi-day leave applications, and multi-tier manager approval workflows
 - [ ] **Performance appraisal & review management** - Evaluation cycles, metric scorecards, and appraisal-driven salary increment integrations
