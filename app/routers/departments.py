@@ -14,6 +14,7 @@ from app.schemas.department import (
     DepartmentBulkCreate,
     DepartmentCreate,
     DepartmentHistoryResponse,
+    DepartmentResponse,
     DepartmentUpdate,
 )
 from app.services.employee_service import employee_view
@@ -21,7 +22,7 @@ from app.services.employee_service import employee_view
 router = APIRouter(prefix="/departments", tags=["Departments"])
 
 
-@router.post("")
+@router.post("", response_model=DepartmentResponse)
 @limiter.limit("10/minute")
 def create_department(
     request: Request,
@@ -268,7 +269,7 @@ def get_department_history(
             status_code=500, detail=f"Database error: {str(e)}")
 
 
-@router.put("/{dept_id}")
+@router.put("/{dept_id}", response_model=DepartmentResponse)
 @limiter.limit("10/minute")
 def update_department(
     request: Request,

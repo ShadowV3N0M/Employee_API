@@ -380,10 +380,12 @@ def import_employees_from_records(
         parsed_j_date = None
         if joining_date:
             if isinstance(joining_date, (datetime, date)):
-                parsed_j_date = joining_date.date() if isinstance(joining_date, datetime) else joining_date
+                parsed_j_date = joining_date.date() if isinstance(
+                    joining_date, datetime) else joining_date
             else:
                 try:
-                    parsed_j_date = datetime.strptime(str(joining_date)[:10], "%Y-%m-%d").date()
+                    parsed_j_date = datetime.strptime(
+                        str(joining_date)[:10], "%Y-%m-%d").date()
                 except ValueError:
                     parsed_j_date = None
 
@@ -397,7 +399,8 @@ def import_employees_from_records(
             Email=final_email,
             is_active=is_active,
             joining_date=parsed_j_date or date.today(),
-            created_at=datetime.combine(parsed_j_date or date.today(), datetime.min.time()),
+            created_at=datetime.combine(
+                parsed_j_date or date.today(), datetime.min.time()),
         )
 
         try:
@@ -526,20 +529,38 @@ def parse_ids_or_emails_for_deletion(file_bytes: bytes, filename: str) -> Tuple[
 
 
 def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int, str]) -> str:
-    """Exports employee records to CSV text, applying role-based field restrictions."""
+    """
+    Exports employee records to CSV text, applying 3-tier role-based boundaries:
+    - Admin: Whole employee dataset (All 19 attributes: ID, Name, Email, Dept ID, Department,
+      Salary, Address, Joining Date, Status, Personal Phone, Blood Group, Date of Birth, Marital Status,
+      Primary Emergency Contact Name/Phone/Relation, and Database Creation/Update timestamps).
+    - Manager: Limited operational dataset (13 attributes: ID, Name, Email, Dept ID, Department,
+      Address, Joining Date, Status, Personal Phone, Blood Group, Primary Emergency Contact Name/Phone —
+      strictly excluding confidential company Salary, private DOB/marital status, and internal timestamps).
+    - User/Employee: Minimum public directory dataset (7 attributes: ID, Name, Email, Department,
+      Joining Date, Status — strictly excluding compensation, address, personal phone, blood group,
+      DOB, marital status, emergency contacts, and timestamps).
+    """
     output = io.StringIO()
     writer = csv.writer(output)
 
-    is_privileged = role in ("admin", "manager")
-
-    if is_privileged:
+    if role == "admin":
         headers = [
-            "Emp_ID", "F_Name", "L_Name", "Email", "Department",
-            "Salary", "Address", "Status", "Joining_Date"
+            "Emp_ID", "F_Name", "L_Name", "Email", "Dept_ID", "Department",
+            "Salary", "Address", "Joining_Date", "Status", "Personal_Phone",
+            "Blood_Group", "Date_Of_Birth", "Marital_Status",
+            "Emergency_Contact_Name", "Emergency_Contact_Phone", "Emergency_Contact_Relation",
+            "Created_At", "Updated_At",
+        ]
+    elif role == "manager":
+        headers = [
+            "Emp_ID", "F_Name", "L_Name", "Email", "Dept_ID", "Department",
+            "Address", "Joining_Date", "Status", "Personal_Phone", "Blood_Group",
+            "Emergency_Contact_Name", "Emergency_Contact_Phone",
         ]
     else:
         headers = [
-            "Emp_ID", "F_Name", "L_Name", "Email", "Department", "Status"
+            "Emp_ID", "F_Name", "L_Name", "Email", "Department", "Joining_Date", "Status"
         ]
 
     writer.writerow(headers)
@@ -547,28 +568,78 @@ def export_employees_to_csv(employees: List[Any], role: str, dept_map: Dict[int,
     for emp in employees:
         dept_name = dept_map.get(emp.Dept_ID, f"Dept #{emp.Dept_ID}")
         status = "Active" if emp.is_active else "Inactive"
-        if is_privileged:
-            j_date_val = str(emp.joining_date) if getattr(emp, "joining_date", None) else (
-                emp.created_at.strftime("%Y-%m-%d") if emp.created_at else ""
-            )
+
+        j_date_val = str(emp.joining_date) if getattr(emp, "joining_date", None) else (
+            emp.created_at.strftime(
+                "%Y-%m-%d") if getattr(emp, "created_at", None) else ""
+        )
+
+        if role == "admin":
+            dob_val = str(emp.dob) if getattr(emp, "dob", None) else ""
+            created_at_val = emp.created_at.strftime(
+                "%Y-%m-%d %H:%M:%S") if getattr(emp, "created_at", None) else ""
+            updated_at_val = emp.updated_at.strftime(
+                "%Y-%m-%d %H:%M:%S") if getattr(emp, "updated_at", None) else ""
+
+            ec_name, ec_phone, ec_rel = "", "", ""
+            if hasattr(emp, "emergency_contacts") and emp.emergency_contacts:
+                primary_c = emp.emergency_contacts[0]
+                ec_name = primary_c.contact_name or ""
+                ec_phone = primary_c.phone_primary or ""
+                ec_rel = primary_c.relationship_type or ""
+
             writer.writerow([
                 emp.Emp_ID,
                 emp.F_Name,
                 emp.L_Name,
                 emp.Email or "",
+                emp.Dept_ID,
                 dept_name,
                 float(emp.Salary) if emp.Salary is not None else 0.0,
                 emp.Address or "",
-                status,
                 j_date_val,
+                status,
+                emp.personal_phone or "",
+                emp.blood_group or "",
+                dob_val,
+                emp.marital_status or "",
+                ec_name,
+                ec_phone,
+                ec_rel,
+                created_at_val,
+                updated_at_val,
+            ])
+        elif role == "manager":
+            ec_name, ec_phone = "", ""
+            if hasattr(emp, "emergency_contacts") and emp.emergency_contacts:
+                primary_c = emp.emergency_contacts[0]
+                ec_name = primary_c.contact_name or ""
+                ec_phone = primary_c.phone_primary or ""
+
+            writer.writerow([
+                emp.Emp_ID,
+                emp.F_Name,
+                emp.L_Name,
+                emp.Email or "",
+                emp.Dept_ID,
+                dept_name,
+                emp.Address or "",
+                j_date_val,
+                status,
+                emp.personal_phone or "",
+                emp.blood_group or "",
+                ec_name,
+                ec_phone,
             ])
         else:
+            # Regular user / employee role: minimum public directory data only
             writer.writerow([
                 emp.Emp_ID,
                 emp.F_Name,
                 emp.L_Name,
                 emp.Email or "",
                 dept_name,
+                j_date_val,
                 status,
             ])
 

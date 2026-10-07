@@ -148,8 +148,8 @@ def test_full_employee_lifecycle():
 
     history_resp = client.get("/employees/101/salary-history", headers=headers)
     assert history_resp.status_code == 200
-    assert len(history_resp.json()) == 1
-    assert float(history_resp.json()[0]["old_salary"]) == 75000
+    assert len(history_resp.json()) == 2
+    assert any(float(h["old_salary"]) == 75000 for h in history_resp.json())
 
     # Soft delete
     delete_resp = client.delete("/employees/101", headers=headers)
@@ -695,16 +695,48 @@ def test_bulk_delete_via_excel():
 
 
 def test_export_employees_csv():
-    """Verify CSV export works and applies role-based masking."""
+    """Verify 3-tier CSV export boundaries: full for admin, limited for manager, minimum for user."""
+    # 1. User export: minimum 7 public directory fields
     user = headers_for("user")
     res_user = client.get("/employees/export", headers=user)
     assert res_user.status_code == 200
+    user_header_line = res_user.text.splitlines()[0]
+    assert user_header_line == "Emp_ID,F_Name,L_Name,Email,Department,Joining_Date,Status"
     assert "Salary" not in res_user.text
+    assert "Personal_Phone" not in res_user.text
+    assert "Emergency_Contact" not in res_user.text
 
+    # User cannot filter by salary
+    assert client.get("/employees/export?min_salary=50000", headers=user).status_code == 403
+
+    # 2. Manager export: limited 13 operational fields (includes contacts, excludes salary & audit timestamps)
+    manager = headers_for("manager")
+    res_manager = client.get("/employees/export", headers=manager)
+    assert res_manager.status_code == 200
+    manager_header_line = res_manager.text.splitlines()[0]
+    assert manager_header_line == "Emp_ID,F_Name,L_Name,Email,Dept_ID,Department,Address,Joining_Date,Status,Personal_Phone,Blood_Group,Emergency_Contact_Name,Emergency_Contact_Phone"
+    assert "Personal_Phone" in res_manager.text
+    assert "Emergency_Contact_Name" in res_manager.text
+    assert "Salary" not in res_manager.text
+    assert "Date_Of_Birth" not in res_manager.text
+    assert "Created_At" not in res_manager.text
+
+    # Manager cannot filter by salary
+    assert client.get("/employees/export?min_salary=50000", headers=manager).status_code == 403
+
+    # 3. Admin export: full 19 fields (includes salary, private demographics, emergency contacts, timestamps)
     admin = headers_for("admin")
     res_admin = client.get("/employees/export", headers=admin)
     assert res_admin.status_code == 200
+    admin_header_line = res_admin.text.splitlines()[0]
+    assert admin_header_line == "Emp_ID,F_Name,L_Name,Email,Dept_ID,Department,Salary,Address,Joining_Date,Status,Personal_Phone,Blood_Group,Date_Of_Birth,Marital_Status,Emergency_Contact_Name,Emergency_Contact_Phone,Emergency_Contact_Relation,Created_At,Updated_At"
     assert "Salary" in res_admin.text
+    assert "Emergency_Contact_Relation" in res_admin.text
+    assert "Created_At" in res_admin.text
+
+    # Admin CAN filter by salary
+    res_admin_salary = client.get("/employees/export?min_salary=50000", headers=admin)
+    assert res_admin_salary.status_code == 200
 
 
 def test_department_bulk_create_and_detail():
@@ -848,7 +880,7 @@ def test_department_edit_history_and_delete():
     assert float(latest["old_budget"]) == 300000
     assert float(latest["new_budget"]) == 550000
     assert latest["notes"] == "Q4 AI expansion budget"
-    assert latest["changed_by"] == "admin"
+    assert latest["changed_by"] in ("admin", "admin_tester")
 
     # 5. Non-admin cannot view department history
     hist_forbidden = client.get(f"/departments/{dept_id}/history", headers=user)

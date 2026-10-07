@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from fastapi.responses import Response
 from sqlalchemy import func, or_, text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.auth.dependencies import (
     get_current_user,
@@ -228,23 +228,25 @@ def export_employees(
 ):
     """
     Export the employee directory to CSV.
-    Role-based rules apply: users see public info; managers and admins see full compensation and addresses.
-    Supports filtering by search query, department, status, and salary range.
+    Role-based rules apply:
+    - Admin: Full employee dataset (all 19 fields including compensation, demographics, emergency contacts, timestamps).
+    - Manager: Limited operational directory (13 fields including contacts; no salary, private demographics, or audit timestamps).
+    - User/Employee: Minimum public directory (7 basic fields and status only).
+    Supports filtering by search query, department, status, and salary range (admin only).
     """
     # Enforce role restrictions
-    if current_user.role == "user":
-        if min_salary is not None or max_salary is not None:
-            raise HTTPException(
-                status_code=403,
-                detail="Standard users cannot filter export by salary"
-            )
-        if include_inactive or status in ("inactive", "all"):
-            raise HTTPException(
-                status_code=403,
-                detail="Standard users cannot export inactive employees"
-            )
+    if current_user.role != "admin" and (min_salary is not None or max_salary is not None):
+        raise HTTPException(
+            status_code=403,
+            detail="Only administrators can filter CSV export by salary"
+        )
+    if current_user.role == "user" and (include_inactive or status in ("inactive", "all")):
+        raise HTTPException(
+            status_code=403,
+            detail="Standard users cannot export inactive employees"
+        )
 
-    query = db.query(EmployeeDB)
+    query = db.query(EmployeeDB).options(joinedload(EmployeeDB.emergency_contacts))
 
     # Status filter
     if status == "active":
