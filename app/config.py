@@ -26,7 +26,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", "15"))
 
-# Email generation
+# Email generation having any default companies domain name, if not provided, it will default to "laesfera.co"
 EMAIL_DOMAIN = os.getenv("EMAIL_DOMAIN", "laesfera.co")
 
 # CORS Configuration
@@ -37,5 +37,5 @@ _raw_cors = os.getenv(
 CORS_ORIGINS = [origin.strip()
                 for origin in _raw_cors.split(",") if origin.strip()]
 
-# Rate Limiter for this application
+# Rate Limiter for this applicationj
 limiter = Limiter(key_func=get_remote_address)
