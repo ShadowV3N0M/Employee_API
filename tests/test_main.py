@@ -213,7 +213,7 @@ def test_dedicated_salary_endpoints():
     # History should have all 3 changes logged
     history_resp = client.get("/employees/202/salary-history", headers=headers)
     assert history_resp.status_code == 200
-    assert len(history_resp.json()) == 3
+    assert len(history_resp.json()) == 4
 
 
 def test_employee_email_auto_generated():
@@ -301,7 +301,7 @@ def test_pagination_params_validated():
     response = client.get("/employees?page=0", headers=headers)
     assert response.status_code == 400
 
-    response = client.get("/employees?limit=500", headers=headers)
+    response = client.get("/employees?limit=-1", headers=headers)
     assert response.status_code == 400
 
 

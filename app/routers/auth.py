@@ -16,6 +16,7 @@ from app.config import (
     FRONTEND_URL,
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES,
     SMTP_HOST,
+    SMTP_PASSWORD,
     limiter,
 )
 from app.database import get_db
@@ -165,7 +166,7 @@ def forgot_password(
         response = {
             "message": "If an account matching that username or email exists, a password reset link has been sent."
         }
-        if not SMTP_HOST and raw_token:
+        if (not SMTP_HOST or not SMTP_PASSWORD) and raw_token:
             response["debug_token"] = raw_token
             response["debug_url"] = f"{FRONTEND_URL}/reset-password?token={raw_token}"
 

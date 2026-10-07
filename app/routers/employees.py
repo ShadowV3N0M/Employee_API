@@ -592,7 +592,7 @@ def create_employee(
             new_employee.Email = clean_email
         else:
             new_employee.Email = generate_employee_email(
-                db, employee.F_Name, employee.L_Name, joining_date=parsed_j_date
+                db, employee.F_Name, employee.L_Name, joining_date=employee.joining_date
             )
 
         db.add(new_employee)
