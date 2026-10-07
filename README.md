@@ -949,6 +949,7 @@ git reset --soft HEAD~1
 - [x] **Show / Hide Password Visibility Toggle** - Interactive eye icon toggles password visibility (plain text vs masked) on Login and Registration forms with theme-adaptive styling and accessibility support
 - [x] **Admin Permanent Employee Deletion & Auto-Resequencing of Emp_IDs** - Admin can permanently delete an employee directly from the edit form; cascades salary history deletion and automatically decrements all subsequent Emp_IDs by 1 in an atomic transaction so employee IDs remain strictly consecutive without gaps
 - [x] **PDF export & official report generator** - Official payslip vouchers, department expense statements, employee directories, and salary revision letters via `reportlab` with running headers, footers, and two-pass page numbering
+- [ ] **Employee Analytics** - Visual KPI cards, Employee Attendence and other details utilization progress bars and Pie Charts, and breakdown tables for managers, admins & Users
 - [ ] **Employee attendance & time-tracking module** - Real-time clock-in/out, punch logs, work hour analytics, and regularization requests
 - [ ] **Leave & time-off management system** - Accrual balances, multi-day leave applications, and multi-tier manager approval workflows
 - [ ] **Performance appraisal & review management** - Evaluation cycles, metric scorecards, and appraisal-driven salary increment integrations
