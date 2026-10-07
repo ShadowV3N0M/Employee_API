@@ -23,9 +23,9 @@ from app.routers import (
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     app = FastAPI(
-        title="Employee Management API",
+        title="Employee HRMS API",
         description="A secure API application for managing employees and departments.",
-        version="2.1.1",
+        version="2.1.2",   # Update the version number as needed
     )
 
     # Attach rate limiter
