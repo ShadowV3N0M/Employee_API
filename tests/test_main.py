@@ -1068,5 +1068,62 @@ def test_get_employees_all_records_and_custom_limits():
     assert res_custom.status_code == 200
 
 
+def test_workforce_analytics_role_boundaries():
+    """Verify GET /analytics/workforce returns full metrics for admin/manager and redacts financials for regular users."""
+    admin = headers_for("admin")
+    manager = headers_for("manager")
+    user = headers_for("user")
+
+    # Seed department & employee
+    dept_res = client.post("/departments", json={"Dept_Name": "AnalyticsDept", "Budget": 150000}, headers=admin)
+    dept_id = dept_res.json()["Dept_ID"] if dept_res.status_code == 200 else client.get("/departments", headers=admin).json()[0]["Dept_ID"]
+    client.post("/employees", json={
+        "Emp_ID": 890, "F_Name": "Analytic", "L_Name": "Tester",
+        "Salary": 75000, "Dept_ID": dept_id, "Address": "Suite 890",
+        "blood_group": "O+", "personal_phone": "9876543210"
+    }, headers=admin)
+
+    # 1. Admin view: full financials + departments + summary
+    res_admin = client.get("/analytics/workforce", headers=admin)
+    assert res_admin.status_code == 200
+    data_admin = res_admin.json()
+    assert data_admin["viewer_role"] == "admin"
+    assert data_admin["is_financial_masked"] is False
+    assert data_admin["financials"] is not None
+    assert "total_payroll" in data_admin["financials"]
+    assert "total_headcount" in data_admin["summary"]
+    assert "tenure_brackets" in data_admin
+    assert "blood_group_distribution" in data_admin
+    assert data_admin["age_demographics"] is not None
+
+    # 2. Manager view: full financials + departments + summary
+    res_manager = client.get("/analytics/workforce", headers=manager)
+    assert res_manager.status_code == 200
+    data_manager = res_manager.json()
+    assert data_manager["viewer_role"] == "manager"
+    assert data_manager["is_financial_masked"] is False
+    assert data_manager["financials"] is not None
+
+    # 3. Regular user view: workforce demographics present, financials and budgets strictly masked
+    res_user = client.get("/analytics/workforce", headers=user)
+    assert res_user.status_code == 200
+    data_user = res_user.json()
+    assert data_user["viewer_role"] == "user"
+    assert data_user["is_financial_masked"] is True
+    assert data_user["financials"] is None
+    assert data_user["age_demographics"] is None
+    assert "total_headcount" in data_user["summary"]
+    assert "tenure_brackets" in data_user
+    assert "blood_group_distribution" in data_user
+
+    # Verify department budget/salaries are None for regular user
+    if data_user["departments"]:
+        first_dept = data_user["departments"][0]
+        assert first_dept["total_payroll"] is None
+        assert first_dept["budget"] is None
+        assert first_dept["budget_utilization_pct"] is None
+        assert first_dept["headcount"] >= 0
+
+
 
 

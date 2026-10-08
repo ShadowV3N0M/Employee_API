@@ -17,6 +17,7 @@ from app.routers import (
     notification_router,
     profile_router,
     reports_router,
+    analytics_router,
 )
 
 
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(notification_router)
     app.include_router(profile_router)
     app.include_router(reports_router)
+    app.include_router(analytics_router)
 
     from fastapi.responses import RedirectResponse
 
