@@ -1,4 +1,9 @@
 """Tests for official reports and PDF generation endpoints."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
@@ -6,6 +11,32 @@ from app.database import SessionLocal
 from app.models.employee import EmployeeDB
 from app.models.user import UserDB
 from app.auth.security import create_access_token
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_db():
+    from app.database import Base, engine
+    app.dependency_overrides.clear()
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        from app.auth.security import hash_password
+        admin = db.query(UserDB).filter(UserDB.role == "admin").first()
+        if not admin:
+            admin = UserDB(username="admin_test", hashed_password=hash_password("admin123"), role="admin", is_active=True)
+            db.add(admin)
+        user = db.query(UserDB).filter(UserDB.role == "user").first()
+        if not user:
+            user = UserDB(username="user_test", hashed_password=hash_password("user123"), role="user", is_active=True)
+            db.add(user)
+        emp = db.query(EmployeeDB).first()
+        if not emp:
+            emp = EmployeeDB(Emp_ID=1, F_Name="Test", L_Name="User", Salary=60000, Dept_ID=1, Address="Test Address", is_active=True)
+            db.add(emp)
+        db.commit()
+    finally:
+        db.close()
+    yield
 
 
 @pytest.fixture
@@ -32,7 +63,6 @@ def admin_token(db_session):
 def regular_user_token(db_session):
     reg_user = db_session.query(UserDB).filter(UserDB.role == "user").first()
     if not reg_user:
-        # Fallback if no user role exists
         return None
     return create_access_token({"sub": reg_user.username, "role": "user"})
 
