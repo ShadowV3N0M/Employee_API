@@ -24,7 +24,7 @@ def get_workforce_analytics(
     current_user: UserDB = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
-    Returns comprehensive employee workforce analytics and organization intelligence.
+    Returns comprehensive employee workforce's analytics and organization intelligence.
     - Role 'admin' & 'manager': Full workforce demographics + confidential compensation & department budget utilization.
     - Role 'user' (regular employee): Non-confidential workforce demographics, tenure, emergency preparedness,
       and department staffing proportions. Confidential salary and financial budget figures are strictly redacted (None).
