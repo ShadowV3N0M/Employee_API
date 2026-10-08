@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,7 @@ from app.config import (
     limiter,
 )
 from app.database import get_db
+from app.models.employee import EmployeeDB
 from app.models.user import UserDB, PasswordResetTokenDB
 from app.schemas.auth import (
     ChangePasswordRequest,
@@ -55,11 +56,29 @@ def register(request: Request, user: UserRegister, db: Session = Depends(get_db)
                 raise HTTPException(
                     status_code=409, detail="Email already registered")
 
+        # Auto-link to existing employee record if matching
+        matched_emp = None
+        if cleaned_email:
+            matched_emp = db.query(EmployeeDB).filter(
+                func.lower(EmployeeDB.Email) == cleaned_email
+            ).first()
+        if not matched_emp and user.username:
+            u_clean = user.username.strip().lower()
+            matched_emp = db.query(EmployeeDB).filter(
+                or_(
+                    func.lower(EmployeeDB.F_Name) == u_clean,
+                    func.lower(func.concat(EmployeeDB.F_Name, " ", EmployeeDB.L_Name)) == u_clean,
+                    func.lower(EmployeeDB.Email) == u_clean,
+                    EmployeeDB.Email.ilike(f"{u_clean}@%"),
+                )
+            ).first()
+
         new_user = UserDB(
             username=user.username,
             email=cleaned_email,
             hashed_password=hash_password(user.password),
-            role="user"
+            role="user",
+            emp_id=matched_emp.Emp_ID if matched_emp else None
         )
         db.add(new_user)
         db.commit()
@@ -311,7 +330,7 @@ def list_users(
         users = query.order_by(col.desc() if order == "desc" else col.asc()).all()
         return [
             {"id": u.id, "username": u.username, "email": u.email,
-             "role": u.role, "is_active": u.is_active}
+             "role": u.role, "is_active": u.is_active, "emp_id": u.emp_id}
             for u in users
         ]
     except SQLAlchemyError as e:
@@ -347,12 +366,32 @@ def create_user_by_admin(
             status_code=409, detail=f"Username '{uname}' already exists")
 
     try:
+        user_email = payload.email.strip().lower() if payload.email and payload.email.strip() else None
+
+        # Auto-link to existing employee record if matching
+        matched_emp = None
+        if user_email:
+            matched_emp = db.query(EmployeeDB).filter(
+                func.lower(EmployeeDB.Email) == user_email
+            ).first()
+        if not matched_emp and uname:
+            u_clean = uname.lower()
+            matched_emp = db.query(EmployeeDB).filter(
+                or_(
+                    func.lower(EmployeeDB.F_Name) == u_clean,
+                    func.lower(func.concat(EmployeeDB.F_Name, " ", EmployeeDB.L_Name)) == u_clean,
+                    func.lower(EmployeeDB.Email) == u_clean,
+                    EmployeeDB.Email.ilike(f"{u_clean}@%"),
+                )
+            ).first()
+
         new_user = UserDB(
             username=uname,
             hashed_password=hash_password(payload.password),
-            email=payload.email.strip() if payload.email and payload.email.strip() else None,
+            email=user_email,
             role=role,
-            is_active=True
+            is_active=True,
+            emp_id=matched_emp.Emp_ID if matched_emp else None
         )
         db.add(new_user)
         db.commit()
@@ -365,6 +404,7 @@ def create_user_by_admin(
                 "email": new_user.email,
                 "role": new_user.role,
                 "is_active": new_user.is_active,
+                "emp_id": new_user.emp_id,
             }
         }
     except SQLAlchemyError as e:

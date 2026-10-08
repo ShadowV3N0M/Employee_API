@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models.department import DepartmentDB
 from app.models.employee import EmployeeDB, SalaryHistoryDB
 from app.models.user import UserDB
+from app.routers.profile import resolve_user_employee
 from app.schemas.employee import (
     BulkSalaryIncrement,
     SalaryCalculateRequest,
@@ -352,35 +353,43 @@ def get_my_salary_profile(
     Available to any authenticated user.
     Look up user's own linked employee salary record to load into the calculator.
     """
-    emp = None
-    if current_user.email:
-        emp = db.query(EmployeeDB).filter(
-            func.lower(EmployeeDB.Email) == current_user.email.strip().lower()
-        ).first()
-
-    if not emp and current_user.username:
-        emp = db.query(EmployeeDB).filter(
-            or_(
-                func.lower(EmployeeDB.F_Name) == current_user.username.strip().lower(),
-                func.lower(func.concat(EmployeeDB.F_Name, " ", EmployeeDB.L_Name)) == current_user.username.strip().lower()
-            )
-        ).first()
+    emp = resolve_user_employee(db, current_user)
 
     if emp:
+        dept_name = emp.department.Dept_Name if emp.department else None
+        if not dept_name and emp.Dept_ID:
+            dept = db.query(DepartmentDB).filter(DepartmentDB.Dept_ID == emp.Dept_ID).first()
+            if dept:
+                dept_name = dept.Dept_Name
+
         return {
             "matched": True,
             "emp_id": emp.Emp_ID,
-            "name": f"{emp.F_Name} {emp.L_Name}",
+            "Emp_ID": emp.Emp_ID,
+            "name": f"{emp.F_Name} {emp.L_Name}".strip(),
+            "F_Name": emp.F_Name,
+            "L_Name": emp.L_Name,
             "email": emp.Email,
-            "salary": float(emp.Salary) if emp.Salary is not None else 0.0
+            "Email": emp.Email,
+            "dept_id": emp.Dept_ID,
+            "Dept_ID": emp.Dept_ID,
+            "department_name": dept_name,
+            "salary": float(emp.Salary) if emp.Salary is not None else 0.0,
+            "Salary": float(emp.Salary) if emp.Salary is not None else 0.0,
         }
 
     return {
         "matched": False,
         "emp_id": None,
+        "Emp_ID": None,
         "name": current_user.username,
         "email": current_user.email,
-        "salary": None
+        "Email": current_user.email,
+        "dept_id": None,
+        "Dept_ID": None,
+        "department_name": None,
+        "salary": None,
+        "Salary": None,
     }
 
 

@@ -39,9 +39,10 @@ def resolve_user_employee(db: Session, user: UserDB) -> Optional[EmployeeDB]:
             return emp
 
     # 2. Match by email
-    if user.email:
+    if user.email and user.email.strip():
+        cleaned_email = user.email.strip().lower()
         emp = db.query(EmployeeDB).filter(
-            func.lower(EmployeeDB.Email) == func.lower(user.email)
+            func.lower(EmployeeDB.Email) == cleaned_email
         ).first()
         if emp:
             user.emp_id = emp.Emp_ID
@@ -51,20 +52,24 @@ def resolve_user_employee(db: Session, user: UserDB) -> Optional[EmployeeDB]:
                 db.rollback()
             return emp
 
-    # 3. Match by username (e.g. matching F_Name or corporate email prefix)
-    emp = db.query(EmployeeDB).filter(
-        or_(
-            func.lower(EmployeeDB.F_Name) == func.lower(user.username),
-            EmployeeDB.Email.ilike(f"{user.username}@%"),
-        )
-    ).first()
-    if emp:
-        user.emp_id = emp.Emp_ID
-        try:
-            db.commit()
-        except Exception:
-            db.rollback()
-        return emp
+    # 3. Match by username (e.g. matching F_Name, full name, or corporate email prefix)
+    if user.username and user.username.strip():
+        uname = user.username.strip().lower()
+        emp = db.query(EmployeeDB).filter(
+            or_(
+                func.lower(EmployeeDB.F_Name) == uname,
+                func.lower(func.concat(EmployeeDB.F_Name, " ", EmployeeDB.L_Name)) == uname,
+                func.lower(EmployeeDB.Email) == uname,
+                EmployeeDB.Email.ilike(f"{uname}@%"),
+            )
+        ).first()
+        if emp:
+            user.emp_id = emp.Emp_ID
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+            return emp
 
     return None
 
