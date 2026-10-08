@@ -20,7 +20,8 @@ authenticated access, backed by MySQL.
 
 ```bash
 python -m venv venv
-venv\Scripts\activate        # Windows
+..\venv\Scripts\activate              # Windows
+..\venv\Scripts\Activate.ps1       # Powershell 
 source venv/bin/activate     # macOS/Linux
 ```
 
