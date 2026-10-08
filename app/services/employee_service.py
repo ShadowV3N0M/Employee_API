@@ -17,7 +17,7 @@ SORTABLE_FIELDS = {
 def employee_view(emp: EmployeeDB, role: str) -> dict:
     """
     Format employee data based on user role permissions:
-    - user: directory info only (Name, Email, Dept, Active status, Joining Date).
+    - user: directory info only (Name, Email, Dept, Active status, Joining Date, Personal Phone).
     - manager/admin: full record including salary, address, timestamps, and joining date.
     """
     j_date = None
@@ -32,6 +32,7 @@ def employee_view(emp: EmployeeDB, role: str) -> dict:
         "L_Name": emp.L_Name,
         "Dept_ID": emp.Dept_ID,
         "Email": emp.Email,
+        "personal_phone": emp.personal_phone,
         "is_active": emp.is_active,
         "joining_date": j_date,
     }
@@ -41,7 +42,6 @@ def employee_view(emp: EmployeeDB, role: str) -> dict:
         view["Address"] = emp.Address
         view["created_at"] = emp.created_at
         view["updated_at"] = emp.updated_at
-        view["personal_phone"] = emp.personal_phone
         view["blood_group"] = emp.blood_group
         view["dob"] = str(emp.dob) if getattr(emp, "dob", None) else None
         view["marital_status"] = emp.marital_status

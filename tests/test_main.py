@@ -1125,5 +1125,46 @@ def test_workforce_analytics_role_boundaries():
         assert first_dept["headcount"] >= 0
 
 
+def test_user_role_can_view_employee_phone():
+    """Verify regular user can view employee phone number when clicking/fetching employee profile, but salary remains hidden."""
+    admin = headers_for("admin")
+    user = headers_for("user")
+
+    dept_res = client.post("/departments", json={"Dept_Name": "PhoneTestDept", "Budget": 75000}, headers=admin)
+    dept_id = dept_res.json()["Dept_ID"] if dept_res.status_code == 200 else 1
+
+    emp_payload = {
+        "Emp_ID": 997,
+        "F_Name": "Pooja",
+        "L_Name": "Sharma",
+        "Salary": 55000,
+        "Dept_ID": dept_id,
+        "Address": "Secret Tower 7",
+        "personal_phone": "9876543210",
+    }
+    create_res = client.post("/employees", json=emp_payload, headers=admin)
+    assert create_res.status_code in (200, 409)
+
+    # 1. Fetch single employee detail as regular user
+    get_res = client.get("/employees/997", headers=user)
+    assert get_res.status_code == 200
+    emp_data = get_res.json()
+    assert emp_data["Emp_ID"] == 997
+    assert emp_data["F_Name"] == "Pooja"
+    assert emp_data["personal_phone"] == "9876543210"
+    assert "Salary" not in emp_data
+    assert "Address" not in emp_data
+
+    # 2. Fetch employee listing as regular user
+    list_res = client.get("/employees?search=Pooja", headers=user)
+    assert list_res.status_code == 200
+    items = list_res.json()["items"]
+    target = next((item for item in items if item["Emp_ID"] == 997), None)
+    assert target is not None
+    assert target["personal_phone"] == "9876543210"
+    assert "Salary" not in target
+    assert "Address" not in target
+
+
 
 
