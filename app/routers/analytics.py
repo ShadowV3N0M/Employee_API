@@ -40,7 +40,8 @@ def get_workforce_analytics(
     active_headcount = len(active_employees)
     inactive_headcount = len(inactive_employees)
     retention_rate_pct = (
-        round((active_headcount / total_headcount) * 100, 1) if total_headcount > 0 else 100.0
+        round((active_headcount / total_headcount) *
+              100, 1) if total_headcount > 0 else 100.0
     )
 
     # 1. Tenure & Hiring Velocity Calculations
@@ -84,8 +85,11 @@ def get_workforce_analytics(
             tenure_brackets["1_to_3_years"] += 1
         elif years_employed < 5.0:
             tenure_brackets["3_to_5_years"] += 1
-        else:
+        elif years_employed >= 5.0:
             tenure_brackets["over_5_years"] += 1
+        else:
+            # Should not occur, but safeguard
+            pass
 
     avg_tenure_years = (
         round((sum(tenure_days_list) / len(tenure_days_list)) / 365.25, 1)
@@ -108,11 +112,13 @@ def get_workforce_analytics(
 
     # 3. Blood Group Distribution (Workforce Emergency Directory)
     blood_group_counts = Counter(
-        (e.blood_group.strip().upper() if e.blood_group and e.blood_group.strip() else "Not Specified")
+        (e.blood_group.strip().upper()
+         if e.blood_group and e.blood_group.strip() else "Not Specified")
         for e in active_employees
     )
     # Canonical order for display
-    canonical_bg = ["O+", "A+", "B+", "AB+", "O-", "A-", "B-", "AB-", "Not Specified"]
+    canonical_bg = ["O+", "A+", "B+", "AB+",
+                    "O-", "A-", "B-", "AB-", "Not Specified"]
     blood_group_distribution = {}
     for bg in canonical_bg:
         if blood_group_counts.get(bg, 0) > 0:
@@ -148,7 +154,8 @@ def get_workforce_analytics(
         age_demographics = age_brackets
 
     # 5. Department Breakdown
-    departments = db.query(DepartmentDB).order_by(DepartmentDB.Dept_ID.asc()).all()
+    departments = db.query(DepartmentDB).order_by(
+        DepartmentDB.Dept_ID.asc()).all()
     dept_stats = []
     all_salaries: List[float] = []
 
@@ -175,7 +182,8 @@ def get_workforce_analytics(
         }
 
         if is_privileged:
-            d_salaries = [float(e.Salary) for e in dept_emps if e.Salary is not None]
+            d_salaries = [float(e.Salary)
+                          for e in dept_emps if e.Salary is not None]
             all_salaries.extend(d_salaries)
             d_total = sum(d_salaries)
             budget_val = float(d.Budget) if d.Budget is not None else None
