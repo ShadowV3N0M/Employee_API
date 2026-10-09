@@ -730,9 +730,13 @@ def test_bulk_delete_via_excel():
     assert res.status_code == 200
     assert res.json()["affected_count"] == 1
 
-    # Verify 802 is deleted
+    # Verify ExcelDel is deleted: search yields 0 and slot 802 (if resequenced) does not contain ExcelDel
+    search_res = client.get("/employees?search=ExcelDel", headers=admin)
+    assert search_res.status_code == 200
+    assert search_res.json()["total"] == 0
     get_res = client.get("/employees/802", headers=admin)
-    assert get_res.status_code == 404
+    if get_res.status_code == 200:
+        assert get_res.json()["F_Name"] != "ExcelDel"
 
 
 def test_bulk_activate_and_deactivate_via_excel():
@@ -1164,6 +1168,104 @@ def test_user_role_can_view_employee_phone():
     assert target["personal_phone"] == "9876543210"
     assert "Salary" not in target
     assert "Address" not in target
+
+
+def test_auto_shift_upward_on_insert_preserves_existing_data():
+    """
+    Verify that when an employee is inserted with an ID that already exists,
+    the existing employee and all subsequent records are automatically shifted
+    upward (+1) without replacing or losing any existing data.
+    """
+    admin = headers_for("admin")
+    dept_id = client.get("/departments", headers=admin).json()[0]["Dept_ID"]
+
+    # 1. Create two employees at high IDs
+    client.post("/employees", json={
+        "Emp_ID": 9801, "F_Name": "FirstExisting", "L_Name": "Person",
+        "Salary": 50000, "Dept_ID": dept_id, "Address": "Original Addr 1"
+    }, headers=admin)
+    client.post("/employees", json={
+        "Emp_ID": 9802, "F_Name": "SecondExisting", "L_Name": "Person",
+        "Salary": 60000, "Dept_ID": dept_id, "Address": "Original Addr 2"
+    }, headers=admin)
+
+    # 2. Insert new employee directly at 9801 (occupying existing slot)
+    new_res = client.post("/employees", json={
+        "Emp_ID": 9801, "F_Name": "NewInsert", "L_Name": "Fresh",
+        "Salary": 75000, "Dept_ID": dept_id, "Address": "New Addr"
+    }, headers=admin)
+    assert new_res.status_code == 200
+    res_data = new_res.json()
+    assert res_data["shifted_count"] >= 2
+    assert "shifted upward by +1" in res_data["message"]
+
+    # 3. Verify new employee takes ID 9801
+    emp_9801 = client.get("/employees/9801", headers=admin).json()
+    assert emp_9801["F_Name"] == "NewInsert"
+    assert float(emp_9801["Salary"]) == 75000
+
+    # 4. Verify FirstExisting moved to 9802 and was NOT replaced
+    emp_9802 = client.get("/employees/9802", headers=admin).json()
+    assert emp_9802["F_Name"] == "FirstExisting"
+    assert float(emp_9802["Salary"]) == 50000
+
+    # 5. Verify SecondExisting moved to 9803 and was NOT replaced
+    emp_9803 = client.get("/employees/9803", headers=admin).json()
+    assert emp_9803["F_Name"] == "SecondExisting"
+    assert float(emp_9803["Salary"]) == 60000
+
+
+def test_delete_resequences_and_reinsert_shifts_upward():
+    """
+    Full end-to-end user scenario:
+    1. Employee 9811 (Jane Doe) is deleted.
+    2. Employee 9812 (John Smith) automatically shifts down to 9811.
+    3. Admin adds a new employee with the original deleted ID 9811 (Charlie).
+    4. Auto-shift moves John Smith from 9811 to 9812 without replacing him.
+    5. Charlie is created at 9811, John Smith is preserved at 9812.
+    """
+    admin = headers_for("admin")
+    dept_id = client.get("/departments", headers=admin).json()[0]["Dept_ID"]
+
+    # Setup: Jane Doe at 9811, John Smith at 9812
+    client.post("/employees", json={
+        "Emp_ID": 9811, "F_Name": "Jane", "L_Name": "Doe",
+        "Salary": 52000, "Dept_ID": dept_id, "Address": "Jane Street"
+    }, headers=admin)
+    client.post("/employees", json={
+        "Emp_ID": 9812, "F_Name": "John", "L_Name": "Smith",
+        "Salary": 62000, "Dept_ID": dept_id, "Address": "John Avenue"
+    }, headers=admin)
+
+    # Step 1: Admin deletes Jane Doe (9811)
+    del_res = client.delete("/employees/9811/delete", headers=admin)
+    assert del_res.status_code == 200
+
+    # Step 2: John Smith should have automatically re-sequenced to 9811
+    after_del = client.get("/employees/9811", headers=admin).json()
+    assert after_del["F_Name"] == "John"
+    assert after_del["L_Name"] == "Smith"
+    assert float(after_del["Salary"]) == 62000
+
+    # Step 3: Admin adds a new employee with original ID 9811 (Charlie)
+    add_new = client.post("/employees", json={
+        "Emp_ID": 9811, "F_Name": "Charlie", "L_Name": "Brown",
+        "Salary": 48000, "Dept_ID": dept_id, "Address": "Charlie Park"
+    }, headers=admin)
+    assert add_new.status_code == 200
+
+    # Step 4: Verify Charlie is at 9811
+    charlie = client.get("/employees/9811", headers=admin).json()
+    assert charlie["F_Name"] == "Charlie"
+    assert float(charlie["Salary"]) == 48000
+
+    # Step 5: Verify John Smith was NOT replaced, but auto-shifted to 9812
+    john = client.get("/employees/9812", headers=admin).json()
+    assert john["F_Name"] == "John"
+    assert john["L_Name"] == "Smith"
+    assert float(john["Salary"]) == 62000
+    assert john["Address"] == "John Avenue"
+
 
 
 

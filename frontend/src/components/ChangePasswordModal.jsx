@@ -27,7 +27,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }) {
 
   const handleOldPasswordBlur = () => {
     if (!oldPassword) {
-      setFieldErrors((prev) => ({ ...prev, oldPassword: "Current password is required." }));
+      setFieldErrors((prev) => ({ ...prev, oldPassword: "Current Password is required." }));
     }
   };
 
@@ -43,7 +43,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }) {
     const err = validatePassword(newPassword, 6);
     let finalErr = err;
     if (!finalErr && oldPassword && newPassword === oldPassword) {
-      finalErr = "New password must be different from your current password.";
+      finalErr = "New password must be different from your current password....";
     }
     setFieldErrors((prev) => ({ ...prev, newPassword: finalErr }));
   };
@@ -65,13 +65,13 @@ export default function ChangePasswordModal({ onClose, onSuccess }) {
 
     const errors = {};
     if (!oldPassword) {
-      errors.oldPassword = "Current password is required.";
+      errors.oldPassword = "Current Password is required......";
     }
     const newPassErr = validatePassword(newPassword, 6);
     if (newPassErr) {
       errors.newPassword = newPassErr;
     } else if (oldPassword && newPassword === oldPassword) {
-      errors.newPassword = "New password must be different from your current password.";
+      errors.newPassword = "New Password must be different from your current password.....";
     }
 
     const confirmErr = validateConfirmPassword(confirmPassword, newPassword);
@@ -100,7 +100,7 @@ export default function ChangePasswordModal({ onClose, onSuccess }) {
         onClose();
       }, 1400);
     } catch (err) {
-      setError(err.message || "Failed to change password. Is your old password correct?");
+      setError(err.message || "Failed to change password. Is your old password correct? Please enter your current password correctly.");
     } finally {
       setBusy(false);
     }

@@ -14,11 +14,16 @@ from app.auth.dependencies import (
 from app.config import limiter
 from app.database import get_db
 from app.models.department import DepartmentDB
-from app.models.employee import EmployeeDB, SalaryHistoryDB
+from app.models.employee import EmployeeDB, SalaryHistoryDB, EmergencyContactDB
 from app.models.user import UserDB
 from app.schemas.employee import BulkEmployeeDelete, Employee, EmployeeUpdate
 from app.services.email_service import generate_employee_email
-from app.services.employee_service import employee_view, SORTABLE_FIELDS
+from app.services.employee_service import (
+    employee_view,
+    SORTABLE_FIELDS,
+    shift_employees_upward,
+    resequence_employees_consecutively,
+)
 from app.services.excel_service import (
     bulk_activate_from_spreadsheet,
     bulk_deactivate_from_spreadsheet,
@@ -342,9 +347,17 @@ def bulk_delete_employees(
         if payload.hard_delete:
             db.query(SalaryHistoryDB).filter(SalaryHistoryDB.Emp_ID.in_(
                 found_ids)).delete(synchronize_session=False)
+            db.query(EmergencyContactDB).filter(EmergencyContactDB.emp_id.in_(
+                found_ids)).delete(synchronize_session=False)
+            db.query(UserDB).filter(UserDB.emp_id.in_(
+                found_ids)).update({UserDB.emp_id: None}, synchronize_session=False)
             db.query(EmployeeDB).filter(EmployeeDB.Emp_ID.in_(
                 found_ids)).delete(synchronize_session=False)
-            action = "permanently deleted"
+
+            # Auto-resequence remaining IDs so IDs remain consecutive without gaps
+            min_deleted_id = min(found_ids)
+            resequence_employees_consecutively(db, min_deleted_id)
+            action = "permanently deleted and IDs re-sequenced"
         else:
             for emp in employees:
                 emp.is_active = False
@@ -591,9 +604,11 @@ def create_employee(
     try:
         existing = db.query(EmployeeDB).filter(
             EmployeeDB.Emp_ID == employee.Emp_ID).first()
+        shifted_count = 0
         if existing:
-            raise HTTPException(
-                status_code=409, detail="Employee ID already exists")
+            # Auto-shift existing employee and all subsequent records upward by 1
+            # so the new employee is inserted at employee.Emp_ID without replacing or losing any existing data!
+            shifted_count = shift_employees_upward(db, employee.Emp_ID)
 
         dept = db.query(DepartmentDB).filter(
             DepartmentDB.Dept_ID == employee.Dept_ID).first()
@@ -668,10 +683,11 @@ def create_employee(
 
         try:
             from app.services.notification_service import dispatch_notification
+            shift_info = f" Existing records from #{new_employee.Emp_ID} auto-shifted up." if shifted_count > 0 else ""
             dispatch_notification(
                 db=db,
                 title="👥 New Employee Onboarded",
-                message=f"{new_employee.F_Name} {new_employee.L_Name} has joined the organization (Dept #{new_employee.Dept_ID}).",
+                message=f"{new_employee.F_Name} {new_employee.L_Name} has joined the organization at ID #{new_employee.Emp_ID}.{shift_info}",
                 type="employee",
                 link="/",
                 broadcast=True,
@@ -679,7 +695,12 @@ def create_employee(
         except Exception:
             pass
 
-        return {"message": "Employee created successfully", "employee": employee_view(new_employee, current_user.role)}
+        shift_note = f" (Existing employees from #{new_employee.Emp_ID} shifted upward by +1 to preserve all data)" if shifted_count > 0 else ""
+        return {
+            "message": f"Employee created successfully at ID #{new_employee.Emp_ID}{shift_note}",
+            "employee": employee_view(new_employee, current_user.role),
+            "shifted_count": shifted_count,
+        }
 
     except HTTPException:
         db.rollback()
@@ -1052,58 +1073,15 @@ def delete_employee(
             raise HTTPException(status_code=404, detail="Employee not found")
 
         emp_name = f"{employee.F_Name} {employee.L_Name}"
-        dialect_name = db.bind.dialect.name
 
-        if dialect_name == "mysql":
-            db.execute(text("SET FOREIGN_KEY_CHECKS = 0"))
-            db.execute(
-                text("DELETE FROM salary_history WHERE Emp_ID = :del_id"),
-                {"del_id": emp_id}
-            )
-            db.execute(
-                text("DELETE FROM employee WHERE Emp_ID = :del_id"),
-                {"del_id": emp_id}
-            )
-            db.execute(
-                text("UPDATE salary_history SET Emp_ID = Emp_ID - 1 WHERE Emp_ID > :del_id ORDER BY Emp_ID ASC"),
-                {"del_id": emp_id}
-            )
-            db.execute(
-                text("UPDATE employee SET Emp_ID = Emp_ID - 1 WHERE Emp_ID > :del_id ORDER BY Emp_ID ASC"),
-                {"del_id": emp_id}
-            )
-            db.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
-        else:
-            if dialect_name == "sqlite":
-                db.execute(text("PRAGMA foreign_keys = OFF"))
+        # Clean up related records
+        db.query(SalaryHistoryDB).filter(SalaryHistoryDB.Emp_ID == emp_id).delete(synchronize_session=False)
+        db.query(EmergencyContactDB).filter(EmergencyContactDB.emp_id == emp_id).delete(synchronize_session=False)
+        db.query(UserDB).filter(UserDB.emp_id == emp_id).update({UserDB.emp_id: None}, synchronize_session=False)
+        db.query(EmployeeDB).filter(EmployeeDB.Emp_ID == emp_id).delete(synchronize_session=False)
 
-            db.execute(
-                text("DELETE FROM salary_history WHERE Emp_ID = :del_id"),
-                {"del_id": emp_id}
-            )
-            db.execute(
-                text("DELETE FROM employee WHERE Emp_ID = :del_id"),
-                {"del_id": emp_id}
-            )
-
-            higher_ids = [r[0] for r in db.execute(
-                text("SELECT Emp_ID FROM employee WHERE Emp_ID > :del_id ORDER BY Emp_ID ASC"),
-                {"del_id": emp_id}
-            ).fetchall()]
-
-            for old_id in higher_ids:
-                new_id = old_id - 1
-                db.execute(
-                    text("UPDATE salary_history SET Emp_ID = :new_id WHERE Emp_ID = :old_id"),
-                    {"new_id": new_id, "old_id": old_id}
-                )
-                db.execute(
-                    text("UPDATE employee SET Emp_ID = :new_id WHERE Emp_ID = :old_id"),
-                    {"new_id": new_id, "old_id": old_id}
-                )
-
-            if dialect_name == "sqlite":
-                db.execute(text("PRAGMA foreign_keys = ON"))
+        # Auto-resequence remaining IDs so IDs remain consecutive without gaps
+        resequence_employees_consecutively(db, emp_id)
 
         db.commit()
 

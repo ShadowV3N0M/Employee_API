@@ -890,11 +890,16 @@ def bulk_delete_from_spreadsheet(
             db.query(UserDB).filter(UserDB.emp_id.in_(matched_ids)).update({UserDB.emp_id: None}, synchronize_session=False)
             db.query(EmployeeDB).filter(EmployeeDB.Emp_ID.in_(matched_ids)).delete(synchronize_session=False)
 
+            # Auto-resequence remaining IDs so IDs remain consecutive without gaps
+            from app.services.employee_service import resequence_employees_consecutively
+            min_deleted_id = min(matched_ids)
+            resequence_employees_consecutively(db, min_deleted_id)
+
         del_user_ids = [u.id for u in users if u.username != current_username and u.emp_id is None]
         if del_user_ids:
             db.query(UserDB).filter(UserDB.id.in_(del_user_ids)).delete(synchronize_session=False)
 
-        action = "permanently deleted"
+        action = "permanently deleted and IDs re-sequenced"
     else:
         for emp in employees:
             emp.is_active = False

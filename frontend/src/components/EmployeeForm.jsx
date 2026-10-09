@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../api";
 import Modal from "./Modal";
 import PhoneInput from "./PhoneInput";
@@ -57,6 +57,41 @@ export default function EmployeeForm({ employee, departments, role, onClose, onS
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [occupiedEmployee, setOccupiedEmployee] = useState(null);
+
+  // Check if entered Emp_ID is currently occupied by an existing employee
+  useEffect(() => {
+    if (editing || !form.Emp_ID) {
+      setOccupiedEmployee(null);
+      return;
+    }
+    const num = Number(form.Emp_ID);
+    if (!Number.isInteger(num) || num <= 0) {
+      setOccupiedEmployee(null);
+      return;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        const emp = await api.getEmployee(num);
+        if (active && emp && emp.Emp_ID === num) {
+          setOccupiedEmployee(emp);
+        } else if (active) {
+          setOccupiedEmployee(null);
+        }
+      } catch {
+        if (active) {
+          setOccupiedEmployee(null);
+        }
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [form.Emp_ID, editing]);
 
   // Field validator matching modern validation timing rules
   function validateField(fieldName, val = form[fieldName]) {
@@ -228,7 +263,10 @@ export default function EmployeeForm({ employee, departments, role, onClose, onS
         if (form.marital_status.trim()) payload.marital_status = form.marital_status.trim();
 
         const res = await api.createEmployee(payload);
-        onSaved(`Created ${res.employee.F_Name} ${res.employee.L_Name} — email ${res.employee.Email}`);
+        const shiftNote = res.shifted_count
+          ? ` (${res.shifted_count} existing record(s) auto-shifted up)`
+          : "";
+        onSaved(`Created ${res.employee.F_Name} ${res.employee.L_Name} — email ${res.employee.Email}${shiftNote}`);
       } else {
         // Send only what actually changed
         const changes = {};
@@ -339,6 +377,30 @@ export default function EmployeeForm({ employee, departments, role, onClose, onS
               required
             />
             <FieldError error={fieldErrors.Emp_ID} id="error-Emp_ID" />
+            {occupiedEmployee && (
+              <div
+                style={{
+                  marginTop: "6px",
+                  padding: "8px 12px",
+                  background: "rgba(59, 130, 246, 0.08)",
+                  border: "1px solid rgba(59, 130, 246, 0.25)",
+                  borderRadius: "6px",
+                  fontSize: "0.83rem",
+                  color: "var(--color-primary, #2563eb)",
+                  lineHeight: "1.4",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "6px",
+                }}
+              >
+                <span style={{ fontSize: "1rem", lineHeight: 1 }}>⚡</span>
+                <span>
+                  <strong>Auto-Shift Notice:</strong> ID #{occupiedEmployee.Emp_ID} is currently held by{" "}
+                  <strong>{occupiedEmployee.F_Name} {occupiedEmployee.L_Name}</strong>. Creating this employee will
+                  auto-shift ID #{occupiedEmployee.Emp_ID} and higher records upward (+1) so no data is replaced or lost.
+                </span>
+              </div>
+            )}
           </label>
         )}
 
