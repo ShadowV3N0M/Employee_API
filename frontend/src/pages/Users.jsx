@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import Modal from "../components/Modal";
+import ExcelImportModal from "../components/ExcelImportModal";
 import SortByDropdown from "../components/SortByDropdown";
+import FieldError from "../components/FieldError";
+import { validateUsername, validatePassword, validateEmail } from "../validation";
 
 const ROLES = ["user", "manager", "admin"];
 
@@ -27,12 +30,14 @@ export default function Users() {
 
   // Add User modal state
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showExcelModal, setShowExcelModal] = useState(false);
   const [form, setForm] = useState({
     username: "",
     password: "",
     email: "",
     role: "user",
   });
+  const [formFieldErrors, setFormFieldErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -147,16 +152,47 @@ export default function Users() {
     }
   }
 
+  const handleUserChange = (field) => (e) => {
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    if (formFieldErrors[field]) {
+      setFormFieldErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+    if (formError) setFormError("");
+  };
+
+  const handleUserBlur = (field) => () => {
+    let err = "";
+    if (field === "username") {
+      err = validateUsername(form.username);
+    } else if (field === "password") {
+      err = validatePassword(form.password, 6);
+    } else if (field === "email") {
+      err = validateEmail(form.email, false);
+    }
+    setFormFieldErrors((prev) => ({ ...prev, [field]: err }));
+  };
+
   async function handleCreateUser(e) {
     e.preventDefault();
     setFormError("");
 
-    if (!form.username.trim() || form.username.trim().length < 3) {
-      setFormError("Username must be at least 3 characters long.");
-      return;
+    const errors = {
+      username: validateUsername(form.username),
+      password: validatePassword(form.password, 6),
+      email: validateEmail(form.email, false),
+    };
+
+    const activeErrors = {};
+    for (const [k, v] of Object.entries(errors)) {
+      if (v) activeErrors[k] = v;
     }
-    if (!form.password || form.password.length < 6) {
-      setFormError("Password must be at least 6 characters long.");
+
+    if (Object.keys(activeErrors).length > 0) {
+      setFormFieldErrors(activeErrors);
+      setFormError("Please correct the errors before submitting.");
+      const firstKey = Object.keys(activeErrors)[0];
+      const el = document.getElementById(`create-user-${firstKey}`);
+      if (el) el.focus();
       return;
     }
 
@@ -171,9 +207,10 @@ export default function Users() {
       setNotice(res.message || `User '${form.username}' created successfully.`);
       setShowAddModal(false);
       setForm({ username: "", password: "", email: "", role: "user" });
+      setFormFieldErrors({});
       await load();
     } catch (err) {
-      setFormError(err.message);
+      setFormError(err.message || "Failed to create user.");
     } finally {
       setSubmitting(false);
     }
@@ -230,6 +267,9 @@ export default function Users() {
             }}
           />
 
+          <button className="btn secondary" onClick={() => setShowExcelModal(true)}>
+            📊 Excel Hub
+          </button>
           <button className="btn primary" onClick={() => setShowAddModal(true)}>
             + Add User
           </button>
@@ -458,48 +498,67 @@ export default function Users() {
 
       {showAddModal && (
         <Modal title="Create New User Account" onClose={() => setShowAddModal(false)}>
-          <form onSubmit={handleCreateUser} style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "10px 0" }}>
-            {formError && <div className="alert error">{formError}</div>}
+          <form onSubmit={handleCreateUser} style={{ display: "flex", flexDirection: "column", gap: "14px", padding: "10px 0" }} noValidate>
+            {formError && <div className="alert error" role="alert">{formError}</div>}
 
             <label>
-              Username <span style={{ color: "red" }}>*</span>
+              <span>Username <span className="required-asterisk">*</span></span>
               <input
+                id="create-user-username"
                 type="text"
                 value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                onChange={handleUserChange("username")}
+                onBlur={handleUserBlur("username")}
                 required
                 minLength={3}
                 placeholder="Unique username (min 3 chars)"
+                className={formFieldErrors.username ? "input-error" : ""}
+                aria-invalid={Boolean(formFieldErrors.username)}
+                aria-describedby={formFieldErrors.username ? "create-user-username-error" : undefined}
               />
+              <FieldError error={formFieldErrors.username} id="create-user-username-error" />
             </label>
 
             <label>
-              Email (optional)
+              <span>Email (optional)</span>
               <input
+                id="create-user-email"
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={handleUserChange("email")}
+                onBlur={handleUserBlur("email")}
                 placeholder="user@example.com"
+                className={formFieldErrors.email ? "input-error" : ""}
+                aria-invalid={Boolean(formFieldErrors.email)}
+                aria-describedby={formFieldErrors.email ? "create-user-email-error" : undefined}
               />
+              <FieldError error={formFieldErrors.email} id="create-user-email-error" />
             </label>
 
             <label>
-              Password <span style={{ color: "red" }}>*</span>
+              <span>Password <span className="required-asterisk">*</span></span>
               <input
+                id="create-user-password"
                 type="password"
                 value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                onChange={handleUserChange("password")}
+                onBlur={handleUserBlur("password")}
                 required
                 minLength={6}
                 placeholder="Temporary password (min 6 chars)"
+                className={formFieldErrors.password ? "input-error" : ""}
+                aria-invalid={Boolean(formFieldErrors.password)}
+                aria-describedby={formFieldErrors.password ? "create-user-password-error" : undefined}
               />
+              <FieldError error={formFieldErrors.password} id="create-user-password-error" />
             </label>
 
             <label>
-              Role <span style={{ color: "red" }}>*</span>
+              <span>Role <span className="required-asterisk">*</span></span>
               <select
+                id="create-user-role"
                 value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
+                onChange={handleUserChange("role")}
               >
                 {ROLES.map((r) => (
                   <option key={r} value={r}>
@@ -524,6 +583,16 @@ export default function Users() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {showExcelModal && (
+        <ExcelImportModal
+          onClose={() => setShowExcelModal(false)}
+          onSuccess={(msg) => {
+            setNotice(msg);
+            load();
+          }}
+        />
       )}
     </>
   );

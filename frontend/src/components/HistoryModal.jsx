@@ -111,7 +111,7 @@ export default function HistoryModal({ employee, onClose }) {
       {error && <div className="alert error">{error}</div>}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", gap: "8px", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
           <button
             type="button"
             className={`btn ${showFilters ? "primary" : "ghost"} small filter-toggle-btn`}

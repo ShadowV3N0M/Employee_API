@@ -5,6 +5,8 @@ import { formatMoney } from "../format";
 import DepartmentEditModal from "../components/DepartmentEditModal";
 import DepartmentHistoryModal from "../components/DepartmentHistoryModal";
 import SortByDropdown from "../components/SortByDropdown";
+import FieldError from "../components/FieldError";
+import { validateDeptName, validateBudget } from "../validation";
 
 export default function Departments() {
   const { user } = useAuth();
@@ -18,6 +20,7 @@ export default function Departments() {
   // Creation form state
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("");
+  const [createFieldErrors, setCreateFieldErrors] = useState({});
   const [busy, setBusy] = useState(false);
 
   // Admin action modal states
@@ -90,10 +93,51 @@ export default function Departments() {
     { value: "Budget", label: "Allocated Budget" },
   ];
 
+  const handleNameChange = (e) => {
+    setName(e.target.value);
+    if (createFieldErrors.name) {
+      setCreateFieldErrors((prev) => ({ ...prev, name: "" }));
+    }
+    if (error) setError("");
+  };
+
+  const handleNameBlur = () => {
+    const err = validateDeptName(name);
+    setCreateFieldErrors((prev) => ({ ...prev, name: err }));
+  };
+
+  const handleBudgetChange = (e) => {
+    setBudget(e.target.value);
+    if (createFieldErrors.budget) {
+      setCreateFieldErrors((prev) => ({ ...prev, budget: "" }));
+    }
+    if (error) setError("");
+  };
+
+  const handleBudgetBlur = () => {
+    const err = validateBudget(budget, false);
+    setCreateFieldErrors((prev) => ({ ...prev, budget: err }));
+  };
+
   async function handleCreate(e) {
     e.preventDefault();
     setError("");
     setNotice("");
+
+    const nameErr = validateDeptName(name);
+    const budgetErr = validateBudget(budget, false);
+    const activeErrors = {};
+    if (nameErr) activeErrors.name = nameErr;
+    if (budgetErr) activeErrors.budget = budgetErr;
+
+    if (Object.keys(activeErrors).length > 0) {
+      setCreateFieldErrors(activeErrors);
+      const firstId = activeErrors.name ? "dept-create-name" : "dept-create-budget";
+      const el = document.getElementById(firstId);
+      if (el) el.focus();
+      return;
+    }
+
     setBusy(true);
     try {
       await api.createDepartment({
@@ -103,6 +147,7 @@ export default function Departments() {
       setNotice(`Department "${name.trim()}" created successfully.`);
       setName("");
       setBudget("");
+      setCreateFieldErrors({});
       await load();
     } catch (err) {
       setError(err.message);
@@ -182,6 +227,25 @@ export default function Departments() {
             }}
           />
 
+          {(isAdmin || user?.role === "manager") && (
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={async () => {
+                try {
+                  const url = api.getDepartmentsPdfUrl({ inline: false });
+                  await api.downloadPdf(url, `Department_Budget_Statement_${new Date().toISOString().slice(0, 10)}.pdf`);
+                  setNotice("Department Budget Statement PDF downloaded successfully.");
+                } catch (err) {
+                  setError(err.message || "Failed to download budget statement PDF.");
+                }
+              }}
+              title="Download formal department budget utilization report (PDF)"
+            >
+              📑 Budget PDF Report
+            </button>
+          )}
+
           {isAdmin && (
             <button
               type="button"
@@ -203,29 +267,41 @@ export default function Departments() {
       {error && <div className="alert error">{error}</div>}
 
       {isAdmin && (
-        <form className="card inline-form" onSubmit={handleCreate}>
+        <form className="card inline-form" onSubmit={handleCreate} noValidate>
           <label>
-            Name
+            <span>Name <span className="required-asterisk">*</span></span>
             <input
+              id="dept-create-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
+              onBlur={handleNameBlur}
               placeholder="e.g. Data Science"
               required
               maxLength={50}
+              className={createFieldErrors.name ? "input-error" : ""}
+              aria-invalid={Boolean(createFieldErrors.name)}
+              aria-describedby={createFieldErrors.name ? "dept-create-name-error" : undefined}
             />
+            <FieldError error={createFieldErrors.name} id="dept-create-name-error" />
           </label>
           <label>
-            Budget (optional)
+            <span>Budget (optional)</span>
             <input
+              id="dept-create-budget"
               type="number"
               min="0"
               step="0.01"
               value={budget}
-              onChange={(e) => setBudget(e.target.value)}
+              onChange={handleBudgetChange}
+              onBlur={handleBudgetBlur}
               placeholder="e.g. 500000"
+              className={createFieldErrors.budget ? "input-error" : ""}
+              aria-invalid={Boolean(createFieldErrors.budget)}
+              aria-describedby={createFieldErrors.budget ? "dept-create-budget-error" : undefined}
             />
+            <FieldError error={createFieldErrors.budget} id="dept-create-budget-error" />
           </label>
-          <button className="btn primary" disabled={busy}>
+          <button className="btn primary" disabled={busy} style={{ alignSelf: "flex-end" }}>
             {busy ? "Adding…" : "+ Add department"}
           </button>
         </form>

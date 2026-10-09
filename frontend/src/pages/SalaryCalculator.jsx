@@ -14,7 +14,6 @@ const SALARY_PRESETS = [
   { label: "₹18.0 LPA", value: 1800000 },
   { label: "₹25.0 LPA", value: 2500000 },
   { label: "₹35.0 LPA", value: 3500000 },
-  { label: "₹50.0 LPA", value: 5000000 },
 ];
 
 export default function SalaryCalculator() {
@@ -64,24 +63,57 @@ export default function SalaryCalculator() {
     api
       .getMySalaryProfile()
       .then((data) => {
-        if (data.matched) {
+        if (data && data.matched) {
           setMyProfile(data);
+        } else {
+          // Fallback to getMyProfile for linked employee self-service records
+          api
+            .getMyProfile()
+            .then((prof) => {
+              if (prof && prof.Emp_ID) {
+                setMyProfile({
+                  matched: true,
+                  emp_id: prof.Emp_ID,
+                  Emp_ID: prof.Emp_ID,
+                  name: `${prof.F_Name} ${prof.L_Name}`.trim(),
+                  F_Name: prof.F_Name,
+                  L_Name: prof.L_Name,
+                  email: prof.Email,
+                  Email: prof.Email,
+                  dept_id: prof.Dept_ID,
+                  Dept_ID: prof.Dept_ID,
+                  department_name: prof.department_name,
+                  salary: prof.Salary || 0,
+                  Salary: prof.Salary || 0,
+                });
+              }
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {});
   }, []);
 
-  // For Admin / Manager: Fetch all N employees and departments without 200 record limit cap
+  // Always load company departments for all authenticated users to resolve department names
+  useEffect(() => {
+    api
+      .listDepartments()
+      .then((deptRes) => {
+        setDepartmentsList(deptRes || []);
+      })
+      .catch((err) => {
+        console.error("Failed to load departments:", err);
+      });
+  }, []);
+
+  // For Admin / Manager: Fetch all N employees roster without 200 record limit cap
   const fetchEmployeesRoster = () => {
     if (!isPrivileged) return;
     setLoadingEmployees(true);
-    Promise.all([
-      api.listEmployees({ all_records: true, all: true, limit: 0, status: "all" }),
-      api.listDepartments(),
-    ])
-      .then(([empRes, deptRes]) => {
+    api
+      .listEmployees({ all_records: true, all: true, limit: 0, status: "all" })
+      .then((empRes) => {
         setEmployeesList(empRes.items || []);
-        setDepartmentsList(deptRes || []);
       })
       .catch((err) => {
         console.error("Failed to load full employee roster:", err);
@@ -194,11 +226,12 @@ export default function SalaryCalculator() {
 
   const handleLoadMySalary = () => {
     setSelectedEmployee(null);
-    if (myProfile && myProfile.salary) {
+    const existingSal = myProfile?.salary ?? myProfile?.Salary;
+    if (myProfile && existingSal) {
       setBasis("annual");
-      setAmountInput(String(myProfile.salary));
+      setAmountInput(String(existingSal));
       setProfileMsg(
-        `Loaded your registered annual compensation: ${formatMoney(myProfile.salary)}`
+        `Loaded your registered annual compensation: ${formatMoney(existingSal)}`
       );
       setTimeout(() => setProfileMsg(""), 5000);
     } else {
@@ -206,17 +239,52 @@ export default function SalaryCalculator() {
       api
         .getMySalaryProfile()
         .then((data) => {
-          if (data.matched && data.salary) {
+          const sal = data?.salary ?? data?.Salary;
+          if (data && data.matched && sal) {
             setMyProfile(data);
             setBasis("annual");
-            setAmountInput(String(data.salary));
+            setAmountInput(String(sal));
             setProfileMsg(
-              `Loaded your registered annual compensation: ${formatMoney(data.salary)}`
+              `Loaded your registered annual compensation: ${formatMoney(sal)}`
             );
           } else {
-            setProfileMsg(
-              "No registered employee salary was found matching your login. You can enter any custom salary below!"
-            );
+            // Also attempt getMyProfile fallback
+            api
+              .getMyProfile()
+              .then((prof) => {
+                if (prof && prof.Salary) {
+                  const normalized = {
+                    matched: true,
+                    emp_id: prof.Emp_ID,
+                    Emp_ID: prof.Emp_ID,
+                    name: `${prof.F_Name} ${prof.L_Name}`.trim(),
+                    F_Name: prof.F_Name,
+                    L_Name: prof.L_Name,
+                    email: prof.Email,
+                    Email: prof.Email,
+                    dept_id: prof.Dept_ID,
+                    Dept_ID: prof.Dept_ID,
+                    department_name: prof.department_name,
+                    salary: prof.Salary,
+                    Salary: prof.Salary,
+                  };
+                  setMyProfile(normalized);
+                  setBasis("annual");
+                  setAmountInput(String(prof.Salary));
+                  setProfileMsg(
+                    `Loaded your registered annual compensation: ${formatMoney(prof.Salary)}`
+                  );
+                } else {
+                  setProfileMsg(
+                    "No registered employee salary was found matching your login. You can enter any custom salary below!"
+                  );
+                }
+              })
+              .catch(() => {
+                setProfileMsg(
+                  "No registered employee salary was found matching your login. You can enter any custom salary below!"
+                );
+              });
           }
         })
         .catch(() => {
@@ -758,8 +826,9 @@ export default function SalaryCalculator() {
                   <button
                     key={p.value}
                     type="button"
-                    className={`btn small ${Number(amountInput) === p.value ? "primary" : "secondary"
-                      }`}
+                    className={`btn small ${
+                      Number(amountInput) === p.value ? "primary" : "secondary"
+                    }`}
                     onClick={() => setAmountInput(String(p.value))}
                   >
                     {p.label}
@@ -824,7 +893,7 @@ export default function SalaryCalculator() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))",
               gap: "16px",
               paddingTop: "14px",
               borderTop: "1px dashed var(--border)",
@@ -914,7 +983,7 @@ export default function SalaryCalculator() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(220px, 100%), 1fr))",
                 gap: "16px",
                 marginTop: "16px",
                 paddingTop: "14px",
@@ -1104,7 +1173,7 @@ export default function SalaryCalculator() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))",
               gap: "20px",
             }}
           >
@@ -1610,9 +1679,8 @@ export default function SalaryCalculator() {
             </div>
 
             <div
+              className="responsive-grid-2"
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
                 gap: "10px",
                 marginBottom: "16px",
                 fontSize: "0.85rem",
@@ -1623,7 +1691,7 @@ export default function SalaryCalculator() {
                 <strong>
                   {selectedEmployee
                     ? `${selectedEmployee.F_Name} ${selectedEmployee.L_Name}`
-                    : myProfile?.name || user.username}
+                    : myProfile?.name || `${myProfile?.F_Name || ""} ${myProfile?.L_Name || ""}`.trim() || user.username}
                 </strong>
               </div>
               <div>
@@ -1631,9 +1699,9 @@ export default function SalaryCalculator() {
                 <strong>
                   {selectedEmployee
                     ? `#${selectedEmployee.Emp_ID} · ${deptMap[selectedEmployee.Dept_ID] || `Dept #${selectedEmployee.Dept_ID}`}`
-                    : myProfile?.matched
-                      ? `#${myProfile.Emp_ID} · Dept #${myProfile.Dept_ID}`
-                      : user.role}
+                    : (myProfile?.matched || myProfile?.Emp_ID || myProfile?.emp_id)
+                    ? `#${myProfile?.Emp_ID ?? myProfile?.emp_id ?? "—"} · ${myProfile?.department_name || deptMap[myProfile?.Dept_ID ?? myProfile?.dept_id] || (myProfile?.Dept_ID || myProfile?.dept_id ? `Dept #${myProfile?.Dept_ID ?? myProfile?.dept_id}` : "Unassigned")}`
+                    : `Account: ${user.username} (${user.role})`}
                 </strong>
               </div>
               <div>
@@ -1641,7 +1709,7 @@ export default function SalaryCalculator() {
                 <span style={{ wordBreak: "break-all" }}>
                   {selectedEmployee
                     ? selectedEmployee.Email || "—"
-                    : myProfile?.Email || user.email || `${user.username}@company.internal`}
+                    : myProfile?.Email || myProfile?.email || user.email || `${user.username}@company.internal`}
                 </span>
               </div>
               <div>
@@ -1661,9 +1729,8 @@ export default function SalaryCalculator() {
             </div>
 
             <div
+              className="responsive-grid-2"
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
                 gap: "16px",
                 borderTop: "1px solid var(--border)",
                 paddingTop: "12px",
@@ -1763,9 +1830,26 @@ export default function SalaryCalculator() {
               tax & payroll guidelines.
             </p>
 
-            <div className="actions" style={{ marginTop: "14px" }}>
+            <div className="actions" style={{ marginTop: "14px", display: "flex", gap: "8px", justifyContent: "flex-end" }}>
               <button type="button" className="btn ghost" onClick={() => window.print()}>
-                🖨️ Print Payslip
+                🖨️ Print HTML
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={async () => {
+                  try {
+                    const empId = selectedEmployee?.Emp_ID || myProfile?.Emp_ID || myProfile?.emp_id;
+                    const url = empId
+                      ? api.getPayslipPdfUrl(empId, { regime, isMetro, inline: false })
+                      : api.getMyPayslipPdfUrl({ regime, isMetro, inline: false });
+                    await api.downloadPdf(url, `Official_Payslip_${empId || "Self"}.pdf`);
+                  } catch (err) {
+                    alert(err.message || "Failed to download official PDF payslip");
+                  }
+                }}
+              >
+                📑 Download Official PDF
               </button>
               <button type="button" className="btn primary" onClick={() => setShowPayslip(false)}>
                 Done

@@ -13,8 +13,9 @@ const PAGE_SIZE = 10;
 
 export default function Employees() {
   const { user } = useAuth();
-  const privileged = isPrivileged(user.role); // manager or admin
-  const isAdmin = user.role === "admin";
+  const privileged = isPrivileged(user?.role); // manager or admin
+  const isAdmin = user?.role === "admin";
+  const isManager = user?.role === "manager";
 
   const [data, setData] = useState({ items: [], total: 0 });
   const [departments, setDepartments] = useState([]);
@@ -169,10 +170,10 @@ export default function Employees() {
       search: debouncedSearch.trim() || undefined,
       dept_id: selectedDept ? Number(selectedDept) : undefined,
       status: privileged ? statusFilter : "active",
-      min_salary: privileged && minSalary !== "" ? Number(minSalary) : undefined,
-      max_salary: privileged && maxSalary !== "" ? Number(maxSalary) : undefined,
+      min_salary: isAdmin && minSalary !== "" ? Number(minSalary) : undefined,
+      max_salary: isAdmin && maxSalary !== "" ? Number(maxSalary) : undefined,
     }),
-    [debouncedSearch, selectedDept, statusFilter, minSalary, maxSalary, privileged]
+    [debouncedSearch, selectedDept, statusFilter, minSalary, maxSalary, privileged, isAdmin]
   );
 
   const totalPages = Math.max(1, Math.ceil(data.total / PAGE_SIZE));
@@ -250,7 +251,13 @@ export default function Employees() {
             download="employees.csv"
             className="btn ghost"
             style={{ display: "inline-flex", alignItems: "center", textDecoration: "none", cursor: "pointer" }}
-            title="Export currently filtered employees as CSV"
+            title={
+              isAdmin
+                ? "Export complete employee dataset to CSV (All 19 fields including salary, personal details & emergency contacts)"
+                : isManager
+                ? "Export team operational directory to CSV (Limited view: contact info & emergency contacts, excludes salary)"
+                : "Export public directory to CSV (Minimum view: basic directory info)"
+            }
             onClick={async (e) => {
               e.preventDefault();
               try {
@@ -265,6 +272,29 @@ export default function Employees() {
           >
             📤 Export CSV
           </a>
+
+          <button
+            type="button"
+            className="btn ghost"
+            style={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}
+            title="Export currently filtered employees as formal PDF report"
+            onClick={async () => {
+              try {
+                const pdfUrl = api.getEmployeesPdfUrl({
+                  deptId: filters.dept_id ? Number(filters.dept_id) : undefined,
+                  status: filters.status || (includeInactive ? "all" : "active"),
+                  search: filters.search || undefined,
+                  inline: false,
+                });
+                await api.downloadPdf(pdfUrl, `Employee_Directory_${new Date().toISOString().slice(0, 10)}.pdf`);
+                setNotice("Employee Directory PDF report downloaded successfully.");
+              } catch (err) {
+                setError(err.message || "Failed to download PDF report.");
+              }
+            }}
+          >
+            📑 Export PDF
+          </button>
         </div>
       </div>
 

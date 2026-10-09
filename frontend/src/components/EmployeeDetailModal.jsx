@@ -15,6 +15,7 @@ export default function EmployeeDetailModal({
 }) {
   const [emp, setEmp] = useState(initialEmp);
   const [loading, setLoading] = useState(false);
+  const [emergencyContacts, setEmergencyContacts] = useState([]);
 
   const isAdmin = role === "admin";
   const isManager = role === "manager";
@@ -39,11 +40,22 @@ export default function EmployeeDetailModal({
         .finally(() => {
           if (!cancelled) setLoading(false);
         });
+
+      if (isPrivileged) {
+        api
+          .getEmployeeEmergencyContacts(emp.Emp_ID)
+          .then((data) => {
+            if (!cancelled && Array.isArray(data)) {
+              setEmergencyContacts(data);
+            }
+          })
+          .catch(() => {});
+      }
     }
     return () => {
       cancelled = true;
     };
-  }, [initialEmp.Emp_ID]);
+  }, [initialEmp.Emp_ID, isPrivileged]);
 
   return (
     <Modal title={`Employee Profile — #${emp.Emp_ID}`} onClose={onClose}>
@@ -93,10 +105,7 @@ export default function EmployeeDetailModal({
           <h4 style={{ margin: "0 0 10px 0", fontSize: "0.82rem", textTransform: "uppercase", color: "var(--muted)", letterSpacing: "0.05em" }}>
             General Information
           </h4>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "12px",
+          <div className="responsive-grid-2" style={{
             background: "var(--surface)",
             border: "1px solid var(--border)",
             borderRadius: "8px",
@@ -113,6 +122,19 @@ export default function EmployeeDetailModal({
             <div>
               <span className="muted small" style={{ display: "block" }}>Official Email</span>
               <span style={{ color: "var(--primary)", wordBreak: "break-all" }}>{emp.Email || "—"}</span>
+            </div>
+            <div>
+              <span className="muted small" style={{ display: "block" }}>Phone Number</span>
+              {emp.personal_phone ? (
+                <a
+                  href={`tel:${emp.personal_phone}`}
+                  style={{ color: "var(--primary)", textDecoration: "none", fontWeight: "600" }}
+                >
+                  📞 {emp.personal_phone}
+                </a>
+              ) : (
+                <strong>—</strong>
+              )}
             </div>
             <div>
               <span className="muted small" style={{ display: "block" }}>Department</span>
@@ -140,10 +162,7 @@ export default function EmployeeDetailModal({
               </h4>
             </div>
 
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "12px",
+            <div className="responsive-grid-2" style={{
               background: "var(--surface)",
               border: "1px solid var(--border)",
               borderRadius: "8px",
@@ -161,9 +180,30 @@ export default function EmployeeDetailModal({
                 <strong>{emp.is_active ? "Active" : "Inactive / Deactivated"}</strong>
               </div>
 
-              <div style={{ gridColumn: "span 2" }}>
+              <div className="span-2">
                 <span className="muted small" style={{ display: "block" }}>Residential Address</span>
                 <span>{emp.Address || "—"}</span>
+              </div>
+
+              <div>
+                <span className="muted small" style={{ display: "block" }}>Blood Group</span>
+                {emp.blood_group ? (
+                  <span className="badge" style={{ background: "#ffe8ef", color: "#d6336c", fontWeight: "700" }}>
+                    🩸 {emp.blood_group}
+                  </span>
+                ) : (
+                  <span>—</span>
+                )}
+              </div>
+
+              <div>
+                <span className="muted small" style={{ display: "block" }}>Date of Birth</span>
+                <span>{emp.dob ? String(emp.dob).slice(0, 10) : "—"}</span>
+              </div>
+
+              <div>
+                <span className="muted small" style={{ display: "block" }}>Marital Status</span>
+                <span>{emp.marital_status || "—"}</span>
               </div>
 
               {emp.created_at && (
@@ -177,6 +217,65 @@ export default function EmployeeDetailModal({
                 <div>
                   <span className="muted small" style={{ display: "block" }}>Last Updated</span>
                   <span className="small">{formatDateTime(emp.updated_at)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Emergency Contacts & SOS Section */}
+            <div style={{ marginTop: "14px" }}>
+              <h4 style={{ margin: "0 0 8px 0", fontSize: "0.82rem", textTransform: "uppercase", color: "var(--muted)", letterSpacing: "0.05em" }}>
+                🚨 Emergency Contacts & SOS
+              </h4>
+
+              {emergencyContacts.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {emergencyContacts.map((c) => (
+                    <div
+                      key={c.id}
+                      style={{
+                        padding: "10px 14px",
+                        background: c.is_primary ? "rgba(245, 159, 0, 0.08)" : "var(--surface)",
+                        border: c.is_primary ? "1px solid #f59f00" : "1px solid var(--border)",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: "8px",
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <strong>{c.contact_name}</strong>
+                          <span className="badge" style={{ background: "var(--surface-alt)" }}>
+                            {c.relationship_type}
+                          </span>
+                          {c.is_primary && (
+                            <span style={{ fontSize: "0.72rem", color: "#d9480f", fontWeight: "700" }}>
+                              ⭐ Primary SOS
+                            </span>
+                          )}
+                        </div>
+                        {c.phone_secondary && (
+                          <span className="muted small" style={{ display: "block", marginTop: "2px" }}>
+                            Alt: {c.phone_secondary}
+                          </span>
+                        )}
+                      </div>
+
+                      <a
+                        href={`tel:${c.phone_primary}`}
+                        className="btn btn-sm btn-primary"
+                        style={{ textDecoration: "none", fontSize: "0.82rem", padding: "4px 10px" }}
+                      >
+                        📞 Call {c.phone_primary}
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ padding: "12px", background: "var(--surface-alt)", borderRadius: "8px", color: "var(--muted)", fontSize: "0.85rem" }}>
+                  No emergency contacts registered for this employee yet.
                 </div>
               )}
             </div>
@@ -230,6 +329,38 @@ export default function EmployeeDetailModal({
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
             {isPrivileged && (
               <>
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  title="Download official monthly payslip voucher (PDF)"
+                  onClick={async () => {
+                    try {
+                      const url = api.getPayslipPdfUrl(emp.Emp_ID, { inline: false });
+                      await api.downloadPdf(url, `Payslip_${emp.Emp_ID}_${emp.F_Name}.pdf`);
+                    } catch (err) {
+                      alert(err.message || "Failed to download payslip PDF");
+                    }
+                  }}
+                >
+                  🧾 Payslip (PDF)
+                </button>
+
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  title="Download salary revision notice & compensation audit letter (PDF)"
+                  onClick={async () => {
+                    try {
+                      const url = api.getSalaryRevisionPdfUrl(emp.Emp_ID, { inline: false });
+                      await api.downloadPdf(url, `Salary_Revision_${emp.Emp_ID}_${emp.F_Name}.pdf`);
+                    } catch (err) {
+                      alert(err.message || "Failed to download revision letter PDF");
+                    }
+                  }}
+                >
+                  📄 Revision Letter (PDF)
+                </button>
+
                 <button
                   type="button"
                   className="btn small ghost"

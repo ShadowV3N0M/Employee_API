@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { api } from "../api";
 import Modal from "./Modal";
+import FieldError from "./FieldError";
 import { formatMoney } from "../format";
+import { validateDeptName, validateBudget } from "../validation";
 
 export default function DepartmentEditModal({ department, onClose, onSaved }) {
   const [name, setName] = useState(department.Dept_Name || "");
@@ -11,6 +13,7 @@ export default function DepartmentEditModal({ department, onClose, onSaved }) {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const currentBudget = department.Budget != null ? Number(department.Budget) : null;
   const newBudgetNum = budget !== "" ? Number(budget) : null;
@@ -19,17 +22,49 @@ export default function DepartmentEditModal({ department, onClose, onSaved }) {
   const isBudgetChanged = newBudgetNum !== currentBudget;
   const hasChanges = isNameChanged || isBudgetChanged;
 
+  const handleNameChange = (e) => {
+    setName(e.target.value);
+    if (fieldErrors.name) {
+      setFieldErrors((prev) => ({ ...prev, name: "" }));
+    }
+    if (error) setError("");
+  };
+
+  const handleNameBlur = () => {
+    const err = validateDeptName(name);
+    setFieldErrors((prev) => ({ ...prev, name: err }));
+  };
+
+  const handleBudgetChange = (e) => {
+    setBudget(e.target.value);
+    if (fieldErrors.budget) {
+      setFieldErrors((prev) => ({ ...prev, budget: "" }));
+    }
+    if (error) setError("");
+  };
+
+  const handleBudgetBlur = () => {
+    const err = validateBudget(budget, false);
+    setFieldErrors((prev) => ({ ...prev, budget: err }));
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
-    if (!name.trim()) {
-      setError("Department name is required.");
-      return;
-    }
+    const nameErr = validateDeptName(name);
+    const budgetErr = validateBudget(budget, false);
 
-    if (newBudgetNum !== null && newBudgetNum < 0) {
-      setError("Budget cannot be negative.");
+    const activeErrors = {};
+    if (nameErr) activeErrors.name = nameErr;
+    if (budgetErr) activeErrors.budget = budgetErr;
+
+    if (Object.keys(activeErrors).length > 0) {
+      setFieldErrors(activeErrors);
+      setError("Please fix the errors before submitting.");
+      const firstId = activeErrors.name ? "dept-edit-name" : "dept-edit-budget";
+      const el = document.getElementById(firstId);
+      if (el) el.focus();
       return;
     }
 
@@ -66,8 +101,8 @@ export default function DepartmentEditModal({ department, onClose, onSaved }) {
       title={`Edit Department — ${department.Dept_Name} (ID #${department.Dept_ID})`}
       onClose={onClose}
     >
-      <form onSubmit={handleSubmit} className="stack">
-        {error && <div className="alert error">{error}</div>}
+      <form onSubmit={handleSubmit} className="stack" noValidate>
+        {error && <div className="alert error" role="alert">{error}</div>}
 
         <div
           style={{
@@ -76,7 +111,8 @@ export default function DepartmentEditModal({ department, onClose, onSaved }) {
             borderRadius: "8px",
             border: "1px solid var(--border)",
             display: "flex",
-            gap: "24px",
+            flexWrap: "wrap",
+            gap: "16px",
             fontSize: "0.88rem",
           }}
         >
@@ -97,27 +133,39 @@ export default function DepartmentEditModal({ department, onClose, onSaved }) {
         </div>
 
         <label>
-          Department Name
+          <span>Department Name <span className="required-asterisk">*</span></span>
           <input
+            id="dept-edit-name"
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={handleNameChange}
+            onBlur={handleNameBlur}
             placeholder="e.g. Engineering"
             required
             maxLength={50}
+            className={fieldErrors.name ? "input-error" : ""}
+            aria-invalid={Boolean(fieldErrors.name)}
+            aria-describedby={fieldErrors.name ? "dept-edit-name-error" : undefined}
           />
+          <FieldError error={fieldErrors.name} id="dept-edit-name-error" />
         </label>
 
         <label>
-          Allocated Budget
+          <span>Allocated Budget</span>
           <input
+            id="dept-edit-budget"
             type="number"
             min="0"
             step="0.01"
             value={budget}
-            onChange={(e) => setBudget(e.target.value)}
+            onChange={handleBudgetChange}
+            onBlur={handleBudgetBlur}
             placeholder="e.g. 750000 (leave empty for unset)"
+            className={fieldErrors.budget ? "input-error" : ""}
+            aria-invalid={Boolean(fieldErrors.budget)}
+            aria-describedby={fieldErrors.budget ? "dept-edit-budget-error" : undefined}
           />
+          <FieldError error={fieldErrors.budget} id="dept-edit-budget-error" />
           <span className="small muted">
             {newBudgetNum !== null && Number.isFinite(newBudgetNum) ? (
               <>Preview: <strong>{formatMoney(newBudgetNum)}</strong></>
@@ -128,7 +176,7 @@ export default function DepartmentEditModal({ department, onClose, onSaved }) {
         </label>
 
         <label>
-          Change Reason / Audit Note (optional)
+          <span>Change Reason / Audit Note (optional)</span>
           <input
             type="text"
             value={notes}

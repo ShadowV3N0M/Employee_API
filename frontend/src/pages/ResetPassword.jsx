@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
+import FieldError from "../components/FieldError";
+import { validatePassword, validateConfirmPassword } from "../validation";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -11,6 +13,7 @@ export default function ResetPassword() {
   const [username, setUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,17 +37,53 @@ export default function ResetPassword() {
       .finally(() => setValidating(false));
   }, [token]);
 
+  const handleNewPasswordChange = (e) => {
+    setNewPassword(e.target.value);
+    if (fieldErrors.newPassword) {
+      setFieldErrors((prev) => ({ ...prev, newPassword: "" }));
+    }
+    if (confirmPassword && fieldErrors.confirmPassword) {
+      setFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
+    }
+    if (error) setError("");
+  };
+
+  const handleNewPasswordBlur = () => {
+    const err = validatePassword(newPassword, 6);
+    setFieldErrors((prev) => ({ ...prev, newPassword: err }));
+  };
+
+  const handleConfirmPasswordChange = (e) => {
+    setConfirmPassword(e.target.value);
+    if (fieldErrors.confirmPassword) {
+      setFieldErrors((prev) => ({ ...prev, confirmPassword: "" }));
+    }
+    if (error) setError("");
+  };
+
+  const handleConfirmPasswordBlur = () => {
+    const err = validateConfirmPassword(confirmPassword, newPassword);
+    setFieldErrors((prev) => ({ ...prev, confirmPassword: err }));
+  };
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters long.");
-      return;
-    }
+    const errors = {
+      newPassword: validatePassword(newPassword, 6),
+      confirmPassword: validateConfirmPassword(confirmPassword, newPassword),
+    };
 
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
+    const activeErrors = {};
+    if (errors.newPassword) activeErrors.newPassword = errors.newPassword;
+    if (errors.confirmPassword) activeErrors.confirmPassword = errors.confirmPassword;
+
+    if (Object.keys(activeErrors).length > 0) {
+      setFieldErrors(activeErrors);
+      const firstId = activeErrors.newPassword ? "reset-new-password" : "reset-confirm-password";
+      const el = document.getElementById(firstId);
+      if (el) el.focus();
       return;
     }
 
@@ -53,7 +92,7 @@ export default function ResetPassword() {
       const res = await api.resetPassword(token, newPassword);
       setSuccess(res.message || "Password reset successfully!");
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to reset password.");
     } finally {
       setBusy(false);
     }
@@ -69,11 +108,11 @@ export default function ResetPassword() {
 
   return (
     <div className="login-wrap">
-      <form className="card login-card" onSubmit={handleSubmit}>
+      <form className="card login-card" onSubmit={handleSubmit} noValidate>
         <h1>Set New Password</h1>
         {username && <p className="muted">Resetting password for <strong>{username}</strong></p>}
 
-        {error && <div className="alert error">{error}</div>}
+        {error && <div className="alert error" role="alert">{error}</div>}
         {success && (
           <div className="alert success">
             {success}
@@ -88,28 +127,40 @@ export default function ResetPassword() {
         {!success && tokenValid && (
           <>
             <label>
-              New Password
+              <span>New Password <span className="required-asterisk">*</span></span>
               <input
+                id="reset-new-password"
                 type="password"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={handleNewPasswordChange}
+                onBlur={handleNewPasswordBlur}
                 autoComplete="new-password"
                 required
                 minLength={6}
                 autoFocus
+                className={fieldErrors.newPassword ? "input-error" : ""}
+                aria-invalid={Boolean(fieldErrors.newPassword)}
+                aria-describedby={fieldErrors.newPassword ? "reset-new-password-error" : undefined}
               />
+              <FieldError error={fieldErrors.newPassword} id="reset-new-password-error" />
             </label>
 
             <label>
-              Confirm New Password
+              <span>Confirm New Password <span className="required-asterisk">*</span></span>
               <input
+                id="reset-confirm-password"
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={handleConfirmPasswordChange}
+                onBlur={handleConfirmPasswordBlur}
                 autoComplete="new-password"
                 required
                 minLength={6}
+                className={fieldErrors.confirmPassword ? "input-error" : ""}
+                aria-invalid={Boolean(fieldErrors.confirmPassword)}
+                aria-describedby={fieldErrors.confirmPassword ? "reset-confirm-password-error" : undefined}
               />
+              <FieldError error={fieldErrors.confirmPassword} id="reset-confirm-password-error" />
             </label>
 
             <button className="btn primary block" disabled={busy}>

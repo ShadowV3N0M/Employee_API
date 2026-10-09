@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth";
 import ThemeToggle from "./ThemeToggle";
 import ChangePasswordModal from "./ChangePasswordModal";
+import NotificationBell from "./NotificationBell";
 
 function getInitials(name) {
   if (!name) return "U";
@@ -140,16 +141,41 @@ export default function Layout() {
             <span className="sidebar-link-label">Salary Calculator</span>
           </NavLink>
 
-          {(user?.role === "manager" || user?.role === "admin") && (
-            <NavLink
-              to="/analytics"
-              className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
-              title="Payroll & Company Analytics"
-            >
-              <span className="sidebar-link-icon">📊</span>
-              <span className="sidebar-link-label">Analytics</span>
-            </NavLink>
-          )}
+          <NavLink
+            to="/holidays"
+            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            title="Holiday Calendar & Company Announcements"
+          >
+            <span className="sidebar-link-icon">📅</span>
+            <span className="sidebar-link-label">Holidays & News</span>
+          </NavLink>
+
+          <NavLink
+            to="/profile"
+            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            title="My Profile & Emergency Contacts"
+          >
+            <span className="sidebar-link-icon">👤</span>
+            <span className="sidebar-link-label">My Profile</span>
+          </NavLink>
+
+          <NavLink
+            to="/reports"
+            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            title="Official Reports & PDF Generator"
+          >
+            <span className="sidebar-link-icon">📑</span>
+            <span className="sidebar-link-label">Official Reports</span>
+          </NavLink>
+
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            title="Workforce & Organizational Analytics"
+          >
+            <span className="sidebar-link-icon">📊</span>
+            <span className="sidebar-link-label">Analytics</span>
+          </NavLink>
 
           {user?.role === "admin" && (
             <NavLink
@@ -194,6 +220,7 @@ export default function Layout() {
 
             <div className="topbar-right">
               <ThemeToggle />
+              <NotificationBell />
 
               {/* User Profile Dropdown Menu */}
               <div className="user-menu-container" ref={userMenuRef}>
@@ -228,12 +255,39 @@ export default function Layout() {
 
                     <div className="user-dropdown-body">
                       <NavLink
+                        to="/profile"
+                        className="user-dropdown-item"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <span className="user-dropdown-item-icon">👤</span>
+                        <span>My Profile & SOS</span>
+                      </NavLink>
+
+                      <NavLink
                         to="/salary-calculator"
                         className="user-dropdown-item"
                         onClick={() => setUserMenuOpen(false)}
                       >
                         <span className="user-dropdown-item-icon">🧮</span>
                         <span>Salary Calculator</span>
+                      </NavLink>
+
+                      <NavLink
+                        to="/holidays"
+                        className="user-dropdown-item"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <span className="user-dropdown-item-icon">📅</span>
+                        <span>Holidays & News</span>
+                      </NavLink>
+
+                      <NavLink
+                        to="/reports"
+                        className="user-dropdown-item"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <span className="user-dropdown-item-icon">📑</span>
+                        <span>Official Reports</span>
                       </NavLink>
 
                       <button
