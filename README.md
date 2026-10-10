@@ -1,16 +1,16 @@
 # Employee Management API
 
-A FastAPI backend for managing employees, departments, salary history, and
+A FastAPI Frontend-Backend for managing employees, departments, salary history, and
 authenticated access, backed by MySQL.
 
 ## Tech Stack
 
-- **FastAPI** - web framework
+- **FastAPI** - Web Framework
 - **SQLAlchemy** - ORM
 - **MySQL** (via PyMySQL) - database
-- **python-jose** - JWT auth tokens
-- **passlib + bcrypt** - password hashing
-- **slowapi** - rate limiting
+- **python-jose** - JWT Auth tokens
+- **passlib + bcrypt** - Password hashing
+- **slowapi** - Rate limiting
 - **pytest** - test suite (runs against SQLite, no MySQL needed)
 - **React + Vite** - web frontend (in `frontend/`)
 
