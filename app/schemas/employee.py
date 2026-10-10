@@ -50,11 +50,12 @@ class BulkEmployeeDelete(BaseModel):
 
 
 class BulkSalaryIncrement(BaseModel):
-    # Fixed dollar/INR increase, e.g. 5000.00
+    # Fixed dollar/INR increase, e.g. 5000.00 as per prediction provided by the model projection
     amount: Optional[float] = None
     # Percentage raise, e.g. 10.0 for +10%
     percentage: Optional[float] = None
-    dept_id: Optional[int] = None           # Optional filter by department ID
+    # Optional filter by department ID "DEPT_ID"
+    dept_id: Optional[int] = None
     # Optional filter by specific employee IDs
     emp_ids: Optional[list[int]] = None
 

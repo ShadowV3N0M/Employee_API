@@ -56,7 +56,7 @@ class SalaryHistoryDB(Base):
 
 
 class EmergencyContactDB(Base):
-    """Emergency contacts directory for employees (SOS contact cards)."""
+    """Emergency contacts directory for employees (SOS contact cards) so that that admins can quickly access them."""
     __tablename__ = "employee_emergency_contact"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

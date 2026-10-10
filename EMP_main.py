@@ -8,6 +8,8 @@ so that existing test suites, migration scripts, and seeders continue working wi
 Recommended modern entrypoint:
     uvicorn app.main:app --reload
 """
+
+# Pydantic Schemas
 from app.schemas import (
     BulkEmployeeDelete,
     BulkSalaryIncrement,
@@ -28,6 +30,8 @@ from app.schemas import (
     UserRegister,
     UserStatusUpdate,
 )
+
+# Database imports
 from app.models import (
     DepartmentDB,
     DepartmentHistoryDB,
@@ -36,6 +40,8 @@ from app.models import (
     SalaryHistoryDB,
     UserDB,
 )
+
+# Authentication & Security
 from app.main import app, create_app
 from app.database import (
     Base,
@@ -44,6 +50,8 @@ from app.database import (
     engine,
     get_db,
 )
+
+# Auth & Security imports
 from app.config import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     ALGORITHM,
@@ -61,6 +69,7 @@ from app.config import (
     SMTP_USER,
     limiter,
 )
+# Business Logic Services imports
 from app.auth import (
     create_access_token,
     get_current_user,
