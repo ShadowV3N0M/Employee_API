@@ -1,7 +1,7 @@
 # Employee Management API
 
 A FastAPI Frontend-Backend for managing employees, departments, salary history, and
-authenticated access, backed by MySQL.
+authenticated access, backed by MySQL/Postgresql.
 
 ## Tech Stack
 
