@@ -4126,8 +4126,9 @@ textarea.input-error:focus {
 .cookie-floating-trigger,
 .privacy-floating-trigger {
   position: fixed;
-  bottom: 18px;
-  left: 18px;
+  bottom: 20px;
+  right: 20px;
+  left: auto;
   z-index: 9990;
   display: flex;
   align-items: center;
@@ -4137,11 +4138,12 @@ textarea.input-error:focus {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  user-select: none;
 }
 
 .cookie-floating-trigger:hover,
@@ -4218,5 +4220,8 @@ textarea.input-error:focus {
   .privacy-floating-trigger {
     padding: 10px;
     border-radius: 50%;
+    bottom: 16px;
+    right: 16px;
+    left: auto;
   }
 }
