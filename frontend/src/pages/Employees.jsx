@@ -281,9 +281,9 @@ export default function Employees() {
             onClick={async () => {
               try {
                 const pdfUrl = api.getEmployeesPdfUrl({
-                  deptId: filters.dept_id ? Number(filters.dept_id) : undefined,
-                  status: filters.status || (includeInactive ? "all" : "active"),
-                  search: filters.search || undefined,
+                  deptId: exportParams.dept_id,
+                  status: exportParams.status,
+                  search: exportParams.search,
                   inline: false,
                 });
                 await api.downloadPdf(pdfUrl, `Employee_Directory_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -299,11 +299,15 @@ export default function Employees() {
       </div>
 
       {notice && (
-        <div className="alert success" onClick={() => setNotice("")}>
-          {notice} <span className="dismiss">dismiss</span>
+        <div className="alert success" onClick={() => setNotice("")} style={{ cursor: "pointer" }}>
+          {notice} <span className="dismiss">✕</span>
         </div>
       )}
-      {error && <div className="alert error">{error}</div>}
+      {error && (
+        <div className="alert error" onClick={() => setError("")} style={{ cursor: "pointer" }}>
+          {error} <span className="dismiss">✕</span>
+        </div>
+      )}
 
       {/* Multi-field Table Filter Bar */}
       {showFilters && (
