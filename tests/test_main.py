@@ -1267,6 +1267,38 @@ def test_delete_resequences_and_reinsert_shifts_upward():
     assert john["Address"] == "John Avenue"
 
 
+def test_security_headers_and_https_enforcement():
+    """Verify security headers (X-Content-Type-Options, X-Frame-Options, HSTS) and HTTPS redirection."""
+    # 1. Standard request returns core security headers
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.headers.get("x-content-type-options") == "nosniff"
+    assert res.headers.get("x-frame-options") == "SAMEORIGIN"
+    assert res.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+
+    # 2. When request is forwarded over HTTPS, Strict-Transport-Security (HSTS) is returned
+    res_https = client.get("/health", headers={"x-forwarded-proto": "https"})
+    assert res_https.status_code == 200
+    assert "strict-transport-security" in res_https.headers
+    assert "max-age=" in res_https.headers["strict-transport-security"]
+    assert "includeSubDomains" in res_https.headers["strict-transport-security"]
+
+    # 3. When ENFORCE_HTTPS is active, forwarded HTTP request from an external host is redirected with 301
+    import app.main as app_main
+    original_setting = app_main.ENFORCE_HTTPS
+    try:
+        app_main.ENFORCE_HTTPS = True
+        res_redirect = client.get(
+            "/health",
+            headers={"x-forwarded-proto": "http", "host": "hrms.laesfera.co"},
+            follow_redirects=False,
+        )
+        assert res_redirect.status_code == 301
+        assert res_redirect.headers["location"].startswith("https://")
+    finally:
+        app_main.ENFORCE_HTTPS = original_setting
+
+
 
 
 

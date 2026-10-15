@@ -1,13 +1,37 @@
 export const BASE_URL =
   import.meta.env.VITE_API_URL ||
   (typeof window !== "undefined" && window.location.hostname
-    ? `http://${window.location.hostname}:8000`
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
     : "http://127.0.0.1:8000");
 const TOKEN_KEY = "emp_token";
 
-export const getToken = () => localStorage.getItem(TOKEN_KEY);
-export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
-export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
+export const getToken = () => {
+  try {
+    return typeof window !== "undefined" && window.localStorage
+      ? localStorage.getItem(TOKEN_KEY)
+      : null;
+  } catch {
+    return null;
+  }
+};
+export const setToken = (token) => {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem(TOKEN_KEY, token);
+    }
+  } catch {
+    // Storage access restricted by browser shields
+  }
+};
+export const clearToken = () => {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // Storage access restricted by browser shields
+  }
+};
 
 // Called when the server says our token is no longer valid (expired, user
 // deactivated...). AuthProvider registers a handler that logs the user out.

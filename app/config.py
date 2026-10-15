@@ -37,5 +37,11 @@ _raw_cors = os.getenv(
 CORS_ORIGINS = [origin.strip()
                 for origin in _raw_cors.split(",") if origin.strip()]
 
-# Rate Limiter for this applicationj
+# Rate Limiter for this application
 limiter = Limiter(key_func=get_remote_address)
+
+# HTTPS Enforcement & HSTS Security Headers
+ENFORCE_HTTPS = os.getenv("ENFORCE_HTTPS", "false").lower() in ("true", "1", "yes")
+HSTS_MAX_AGE = int(os.getenv("HSTS_MAX_AGE", "31536000"))  # 1 year in seconds
+HSTS_INCLUDE_SUBDOMAINS = os.getenv("HSTS_INCLUDE_SUBDOMAINS", "true").lower() in ("true", "1", "yes")
+HSTS_PRELOAD = os.getenv("HSTS_PRELOAD", "true").lower() in ("true", "1", "yes")

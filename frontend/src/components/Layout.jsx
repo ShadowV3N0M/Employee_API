@@ -20,7 +20,13 @@ export default function Layout() {
 
   // Collapsible sidebar state (persisted across sessions)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    return localStorage.getItem("sidebar_collapsed") === "true";
+    try {
+      return typeof window !== "undefined" && window.localStorage
+        ? localStorage.getItem("sidebar_collapsed") === "true"
+        : false;
+    } catch {
+      return false;
+    }
   });
 
   // Mobile drawer state
@@ -37,7 +43,13 @@ export default function Layout() {
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
       const next = !prev;
-      localStorage.setItem("sidebar_collapsed", String(next));
+      try {
+        if (typeof window !== "undefined" && window.localStorage) {
+          localStorage.setItem("sidebar_collapsed", String(next));
+        }
+      } catch {
+        // Storage access restricted
+      }
       return next;
     });
   };
@@ -300,6 +312,18 @@ export default function Layout() {
                       >
                         <span className="user-dropdown-item-icon">🔑</span>
                         <span>Change Password</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="user-dropdown-item"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          window.dispatchEvent(new CustomEvent("open-cookie-preferences"));
+                        }}
+                      >
+                        <span className="user-dropdown-item-icon">🍪</span>
+                        <span>Cookie & Privacy</span>
                       </button>
 
                       <div className="user-dropdown-divider" />

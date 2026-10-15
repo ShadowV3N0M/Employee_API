@@ -1,10 +1,18 @@
 """Employee Management API - Application factory and main ASGI app."""
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.config import CORS_ORIGINS, limiter
+from app.config import (
+    CORS_ORIGINS,
+    ENFORCE_HTTPS,
+    HSTS_INCLUDE_SUBDOMAINS,
+    HSTS_MAX_AGE,
+    HSTS_PRELOAD,
+    limiter,
+)
 from app.database import Base, auto_migrate_schema, engine
 import app.models  # noqa: F401
 from app.routers import (
@@ -33,6 +41,49 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+    # HTTPS Enforcement & Security Headers Middleware
+    @app.middleware("http")
+    async def enforce_https_and_security_headers(request: Request, call_next):
+        # 1. Enforce HTTPS redirection if configured
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme).lower()
+        host = request.url.hostname or ""
+
+        # Redirect non-HTTPS requests when ENFORCE_HTTPS is active
+        # (do not redirect testclient or local loopback unless explicitly forwarded as http from a proxy)
+        if ENFORCE_HTTPS and proto == "http":
+            if host not in ("testserver", "localhost", "127.0.0.1") or request.headers.get("x-forwarded-proto") == "http":
+                secure_url = request.url.replace(scheme="https")
+                return RedirectResponse(url=str(secure_url), status_code=301)
+
+        response = await call_next(request)
+
+        # 2. Strict-Transport-Security (HSTS)
+        if ENFORCE_HTTPS or proto == "https":
+            hsts_parts = [f"max-age={HSTS_MAX_AGE}"]
+            if HSTS_INCLUDE_SUBDOMAINS:
+                hsts_parts.append("includeSubDomains")
+            if HSTS_PRELOAD:
+                hsts_parts.append("preload")
+            response.headers["Strict-Transport-Security"] = "; ".join(hsts_parts)
+
+        # 3. Secure Cookie Enforcements on HTTPS
+        if (ENFORCE_HTTPS or proto == "https") and "set-cookie" in response.headers:
+            new_raw = []
+            for name, val in response.raw_headers:
+                if name.lower() == b"set-cookie":
+                    val_str = val.decode("latin-1", errors="ignore")
+                    if "secure" not in val_str.lower():
+                        val = f"{val_str}; Secure".encode("latin-1")
+                new_raw.append((name, val))
+            response.raw_headers = new_raw
+
+        # 4. Essential Security Headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        return response
+
     # CORS Middleware
     app.add_middleware(
         CORSMiddleware,
@@ -54,8 +105,6 @@ def create_app() -> FastAPI:
     app.include_router(profile_router)
     app.include_router(reports_router)
     app.include_router(analytics_router)
-
-    from fastapi.responses import RedirectResponse
 
     @app.get("/", include_in_schema=False)
     def root():

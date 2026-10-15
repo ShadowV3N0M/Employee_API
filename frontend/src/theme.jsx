@@ -9,8 +9,12 @@ const ThemeContext = createContext({
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
-    if (saved === "dark" || saved === "light") return saved;
+    try {
+      const saved = typeof window !== "undefined" && window.localStorage ? localStorage.getItem("theme") : null;
+      if (saved === "dark" || saved === "light") return saved;
+    } catch {
+      // Storage blocked by privacy shields
+    }
     if (
       typeof window !== "undefined" &&
       window.matchMedia &&
@@ -25,16 +29,27 @@ export function ThemeProvider({ children }) {
   const [mascot, setMascot] = useState(null);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.style.colorScheme = theme;
-    localStorage.setItem("theme", theme);
+    try {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.style.colorScheme = theme;
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.setItem("theme", theme);
+      }
+    } catch {
+      // Storage blocked by privacy shields
+    }
   }, [theme]);
 
   // Listen for system theme changes if user hasn't explicitly set preference in localStorage
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = (e) => {
-      const saved = localStorage.getItem("theme");
+      let saved = null;
+      try {
+        saved = typeof window !== "undefined" && window.localStorage ? localStorage.getItem("theme") : null;
+      } catch {
+        saved = null;
+      }
       if (!saved) {
         setThemeState(e.matches ? "dark" : "light");
       }
@@ -126,7 +141,13 @@ export function ThemeProvider({ children }) {
 
     document.documentElement.setAttribute("data-theme", nextTheme);
     document.documentElement.style.colorScheme = nextTheme;
-    localStorage.setItem("theme", nextTheme);
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.setItem("theme", nextTheme);
+      }
+    } catch {
+      // Storage access restricted
+    }
     setThemeState(nextTheme);
   };
 

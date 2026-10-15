@@ -13,6 +13,16 @@ import Profile from "./pages/Profile";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import { NotificationProvider } from "./context/NotificationContext";
+import { lazy, Suspense } from "react";
+
+// Resilient lazy load: If aggressive browser shields (like Brave) or adblockers block compliance scripts,
+// catch the rejection and safely fallback so the primary application (Login, Dashboard) remains 100% functional!
+const PrivacyNotice = lazy(() =>
+  import("./components/PrivacyNotice").catch((err) => {
+    console.warn("Privacy notice bypassed or blocked by browser shields:", err);
+    return { default: () => null };
+  })
+);
 
 // Guards a route: must be logged in, and (optionally) have one of `roles`.
 function RequireAuth({ roles, children }) {
@@ -29,8 +39,9 @@ export default function App() {
   const { user } = useAuth();
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
+    <>
+      <Routes>
+        <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Authenticated routes inside Layout */}
@@ -73,5 +84,9 @@ export default function App() {
       <Route path="/404" element={<NotFound standalone />} />
       <Route path="*" element={<NotFound standalone />} />
     </Routes>
+    <Suspense fallback={null}>
+      <PrivacyNotice />
+    </Suspense>
+  </>
   );
 }
