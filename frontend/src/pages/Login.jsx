@@ -20,6 +20,18 @@ export default function Login() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginFieldErrors, setLoginFieldErrors] = useState({});
   const [loginError, setLoginError] = useState("");
+  const [loginNotice, setLoginNotice] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("reason") === "timeout") {
+        const mins = params.get("minutes");
+        return mins
+          ? `Your session expired after ${mins} minutes of inactivity. Please sign in again.`
+          : "Your session expired due to inactivity. Please sign in again.";
+      }
+    } catch {}
+    return "";
+  });
   const [loginBusy, setLoginBusy] = useState(false);
 
   // Back Form State (Register / Forgot Password)
@@ -253,6 +265,27 @@ export default function Login() {
                 <h1>Employee Management</h1>
                 <p className="muted">Sign in to continue</p>
               </div>
+
+              {loginNotice && (
+                <div
+                  className="alert warning"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setLoginNotice("")}
+                  role="alert"
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span>⏳</span>
+                    <span style={{ fontSize: "0.85rem", lineHeight: 1.4 }}>{loginNotice}</span>
+                  </div>
+                  <span className="dismiss">✕</span>
+                </div>
+              )}
 
               {loginError && <div className="alert error" role="alert">{loginError}</div>}
 

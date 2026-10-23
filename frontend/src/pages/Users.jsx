@@ -5,6 +5,7 @@ import Modal from "../components/Modal";
 import ExcelImportModal from "../components/ExcelImportModal";
 import SortByDropdown from "../components/SortByDropdown";
 import FieldError from "../components/FieldError";
+import SessionTimeoutModal from "../components/SessionTimeoutModal";
 import { validateUsername, validatePassword, validateEmail } from "../validation";
 
 const ROLES = ["user", "manager", "admin"];
@@ -31,6 +32,7 @@ export default function Users() {
   // Add User modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExcelModal, setShowExcelModal] = useState(false);
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [form, setForm] = useState({
     username: "",
     password: "",
@@ -267,6 +269,14 @@ export default function Users() {
             }}
           />
 
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => setShowTimeoutModal(true)}
+            title="Configure global portal session inactivity timeout for all roles"
+          >
+            ⏱️ Session Policy
+          </button>
           <button className="btn secondary" onClick={() => setShowExcelModal(true)}>
             📊 Excel Hub
           </button>
@@ -592,6 +602,13 @@ export default function Users() {
             setNotice(msg);
             load();
           }}
+        />
+      )}
+
+      {showTimeoutModal && (
+        <SessionTimeoutModal
+          onClose={() => setShowTimeoutModal(false)}
+          onSaved={(mins) => setNotice(`Session timeout policy updated to ${mins} minutes.`)}
         />
       )}
     </>

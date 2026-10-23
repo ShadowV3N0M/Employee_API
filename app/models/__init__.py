@@ -5,6 +5,7 @@ from app.models.employee import EmployeeDB, SalaryHistoryDB, EmergencyContactDB
 from app.models.user import UserDB, PasswordResetTokenDB
 from app.models.holiday import HolidayDB, AnnouncementDB
 from app.models.notification import NotificationDB
+from app.models.system_setting import SystemSettingDB
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "HolidayDB",
     "AnnouncementDB",
     "NotificationDB",
+    "SystemSettingDB",
 ]

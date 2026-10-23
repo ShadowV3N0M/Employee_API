@@ -1299,6 +1299,42 @@ def test_security_headers_and_https_enforcement():
         app_main.ENFORCE_HTTPS = original_setting
 
 
+def test_session_timeout_configuration_and_token_refresh():
+    """Verify session timeout policy retrieval, admin update restriction, and token refresh."""
+    admin_headers = headers_for("admin")
+    user_headers = headers_for("user")
+
+    # 1. Any user or public can read default session config
+    res_get = client.get("/auth/session-config")
+    assert res_get.status_code == 200
+    cfg = res_get.json()
+    assert "timeout_minutes" in cfg
+    assert cfg["warning_seconds"] == 60
+    assert cfg["enabled"] is True
+
+    # 2. Regular user cannot update session config (403 Forbidden)
+    res_forbidden = client.put("/auth/session-config", json={"timeout_minutes": 30}, headers=user_headers)
+    assert res_forbidden.status_code == 403
+
+    # 3. Admin can update session timeout to 30 minutes
+    res_update = client.put("/auth/session-config", json={"timeout_minutes": 30}, headers=admin_headers)
+    assert res_update.status_code == 200
+    assert res_update.json()["timeout_minutes"] == 30
+
+    # Verify updated value persisted
+    res_verify = client.get("/auth/session-config")
+    assert res_verify.status_code == 200
+    assert res_verify.json()["timeout_minutes"] == 30
+
+    # 4. Token refresh endpoint works for active user session
+    res_refresh = client.post("/auth/refresh", headers=user_headers)
+    assert res_refresh.status_code == 200
+    token_data = res_refresh.json()
+    assert "access_token" in token_data
+    assert token_data["token_type"] == "bearer"
+
+
+
 
 
 

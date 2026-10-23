@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 import { NotificationProvider } from "./context/NotificationContext";
+import SessionTimeoutManager from "./components/SessionTimeoutManager";
 import { lazy, Suspense } from "react";
 
 // Resilient lazy load: If aggressive browser shields (like Brave) or adblockers block compliance scripts,
@@ -40,6 +41,7 @@ export default function App() {
 
   return (
     <>
+      <SessionTimeoutManager />
       <Routes>
         <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />

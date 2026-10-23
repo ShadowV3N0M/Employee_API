@@ -6,42 +6,61 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from app.main import app
-from app.database import SessionLocal
+from app.database import Base, get_db
 from app.models.employee import EmployeeDB
+from app.models.department import DepartmentDB
 from app.models.user import UserDB
-from app.auth.security import create_access_token
+from app.auth.security import create_access_token, hash_password
+from app.config import limiter
+
+limiter.enabled = False
+
+TEST_REPORTS_DB_URL = "sqlite:///./test_reports.db"
+test_engine = create_engine(TEST_REPORTS_DB_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+def override_get_db():
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_db():
-    from app.database import Base, engine
-    app.dependency_overrides.clear()
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
+def setup_reports_db():
+    old_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
+    Base.metadata.create_all(bind=test_engine)
+    db = TestingSessionLocal()
     try:
-        from app.auth.security import hash_password
-        admin = db.query(UserDB).filter(UserDB.role == "admin").first()
-        if not admin:
-            admin = UserDB(username="admin_test", hashed_password=hash_password("admin123"), role="admin", is_active=True)
-            db.add(admin)
-        user = db.query(UserDB).filter(UserDB.role == "user").first()
-        if not user:
-            user = UserDB(username="user_test", hashed_password=hash_password("user123"), role="user", is_active=True)
-            db.add(user)
-        emp = db.query(EmployeeDB).first()
-        if not emp:
-            emp = EmployeeDB(Emp_ID=1, F_Name="Test", L_Name="User", Salary=60000, Dept_ID=1, Address="Test Address", is_active=True)
-            db.add(emp)
+        dept = DepartmentDB(Dept_ID=1, Dept_Name="Engineering", Budget=1000000.0)
+        db.add(dept)
+        admin = UserDB(username="admin_test", hashed_password=hash_password("admin123"), role="admin", is_active=True)
+        db.add(admin)
+        user = UserDB(username="user_test", hashed_password=hash_password("user123"), role="user", is_active=True)
+        db.add(user)
+        emp = EmployeeDB(Emp_ID=1, F_Name="Test", L_Name="User", Salary=60000.0, Dept_ID=1, Address="Test Address", is_active=True)
+        db.add(emp)
         db.commit()
     finally:
         db.close()
     yield
+    Base.metadata.drop_all(bind=test_engine)
+    if old_override:
+        app.dependency_overrides[get_db] = old_override
+    else:
+        app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture
 def db_session():
-    db = SessionLocal()
+    db = TestingSessionLocal()
     try:
         yield db
     finally:

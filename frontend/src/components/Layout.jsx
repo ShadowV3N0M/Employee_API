@@ -4,6 +4,7 @@ import { useAuth } from "../auth";
 import ThemeToggle from "./ThemeToggle";
 import ChangePasswordModal from "./ChangePasswordModal";
 import NotificationBell from "./NotificationBell";
+import SessionTimeoutModal from "./SessionTimeoutModal";
 
 function getInitials(name) {
   if (!name) return "U";
@@ -38,6 +39,7 @@ export default function Layout() {
 
   // Change password modal state
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showSessionModal, setShowSessionModal] = useState(false);
   const [passwordNotification, setPasswordNotification] = useState("");
 
   const toggleSidebar = () => {
@@ -326,6 +328,20 @@ export default function Layout() {
                         <span>Cookie & Privacy</span>
                       </button>
 
+                      {user?.role === "admin" && (
+                        <button
+                          type="button"
+                          className="user-dropdown-item"
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            setShowSessionModal(true);
+                          }}
+                        >
+                          <span className="user-dropdown-item-icon">⏱️</span>
+                          <span>Session Timeout</span>
+                        </button>
+                      )}
+
                       <div className="user-dropdown-divider" />
 
                       <button
@@ -365,6 +381,13 @@ export default function Layout() {
         <ChangePasswordModal
           onClose={() => setShowChangePassword(false)}
           onSuccess={handlePasswordSuccess}
+        />
+      )}
+
+      {showSessionModal && (
+        <SessionTimeoutModal
+          onClose={() => setShowSessionModal(false)}
+          onSaved={(mins) => handlePasswordSuccess(`Portal session timeout updated to ${mins} minutes!`)}
         />
       )}
     </div>

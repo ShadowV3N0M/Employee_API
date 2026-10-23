@@ -127,6 +127,19 @@ export const api = {
       body: { token, new_password },
       auth: false,
     }),
+  getSessionConfig: () => request("/auth/session-config", { auth: false }),
+  updateSessionConfig: (timeoutMinutes) =>
+    request("/auth/session-config", {
+      method: "PUT",
+      body: { timeout_minutes: Number(timeoutMinutes) },
+    }),
+  refreshSession: async () => {
+    const res = await request("/auth/refresh", { method: "POST" });
+    if (res?.access_token) {
+      setToken(res.access_token);
+    }
+    return res;
+  },
 
   // --- users (admin) ---
   listUsers: (params) => {

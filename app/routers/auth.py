@@ -22,6 +22,8 @@ from app.config import (
 from app.database import get_db
 from app.models.employee import EmployeeDB
 from app.models.user import UserDB, PasswordResetTokenDB
+from app.models.system_setting import SystemSettingDB
+from app.schemas.system_setting import SessionConfigResponse, SessionConfigUpdate
 from app.schemas.auth import (
     ChangePasswordRequest,
     ForgotPasswordRequest,
@@ -544,3 +546,71 @@ def delete_user(
         db.rollback()
         raise HTTPException(
             status_code=500, detail=f"Database error: {str(e)}")
+
+
+# =========================================================================
+# Session Timeout Management & Token Renewal Endpoints
+# =========================================================================
+
+@router.get("/session-config", response_model=SessionConfigResponse)
+def get_session_config(db: Session = Depends(get_db)):
+    """Retrieve portal session timeout policy (accessible across all roles and devices)."""
+    try:
+        setting = db.query(SystemSettingDB).filter(
+            SystemSettingDB.key == "session_timeout_minutes"
+        ).first()
+        timeout = int(setting.value) if setting and setting.value.isdigit() else 15
+    except Exception:
+        timeout = 15
+
+    return SessionConfigResponse(
+        timeout_minutes=timeout,
+        warning_seconds=60,
+        enabled=True
+    )
+
+
+@router.put("/session-config", response_model=SessionConfigResponse)
+def update_session_config(
+    request: Request,
+    payload: SessionConfigUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(require_admin)
+):
+    """Admin only. Configure the global session timeout (in minutes) for all roles."""
+    try:
+        setting = db.query(SystemSettingDB).filter(
+            SystemSettingDB.key == "session_timeout_minutes"
+        ).first()
+
+        if setting:
+            setting.value = str(payload.timeout_minutes)
+        else:
+            setting = SystemSettingDB(
+                key="session_timeout_minutes",
+                value=str(payload.timeout_minutes),
+                description="Portal inactivity session timeout in minutes"
+            )
+            db.add(setting)
+
+        db.commit()
+        return SessionConfigResponse(
+            timeout_minutes=payload.timeout_minutes,
+            warning_seconds=60,
+            enabled=True
+        )
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+
+@router.post("/refresh", response_model=Token)
+@limiter.limit("30/minute")
+def refresh_session_token(
+    request: Request,
+    current_user: UserDB = Depends(get_current_user)
+):
+    """Renew active JWT session token for authenticated user (web/mobile keep-alive)."""
+    token = create_access_token({"sub": current_user.username, "role": current_user.role})
+    return Token(access_token=token)
+
