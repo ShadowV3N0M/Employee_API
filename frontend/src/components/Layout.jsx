@@ -5,6 +5,7 @@ import ThemeToggle from "./ThemeToggle";
 import ChangePasswordModal from "./ChangePasswordModal";
 import NotificationBell from "./NotificationBell";
 import SessionTimeoutModal from "./SessionTimeoutModal";
+import SessionIdleBadge from "./SessionIdleBadge";
 
 function getInitials(name) {
   if (!name) return "U";
@@ -233,6 +234,7 @@ export default function Layout() {
             </div>
 
             <div className="topbar-right">
+              <SessionIdleBadge />
               <ThemeToggle />
               <NotificationBell />
 

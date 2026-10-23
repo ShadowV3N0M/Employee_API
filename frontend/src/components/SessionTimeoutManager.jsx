@@ -22,6 +22,7 @@ export default function SessionTimeoutManager() {
     }
   });
 
+  const [autoLogoutIdle, setAutoLogoutIdle] = useState(true);
   const [warningSeconds, setWarningSeconds] = useState(DEFAULT_WARNING_SECONDS);
   const [remainingSeconds, setRemainingSeconds] = useState(DEFAULT_TIMEOUT_MINUTES * 60);
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -41,6 +42,9 @@ export default function SessionTimeoutManager() {
         const mins = Number(cfg.timeout_minutes) || DEFAULT_TIMEOUT_MINUTES;
         setTimeoutMinutes(mins);
         setWarningSeconds(Number(cfg.warning_seconds) || DEFAULT_WARNING_SECONDS);
+        if (cfg.auto_logout_idle !== undefined) {
+          setAutoLogoutIdle(Boolean(cfg.auto_logout_idle));
+        }
         try {
           localStorage.setItem(STORAGE_TIMEOUT_KEY, String(mins));
         } catch {}
@@ -69,7 +73,7 @@ export default function SessionTimeoutManager() {
     }
   }, []);
 
-  // Listen for storage events (cross-tab synchronization) and custom policy events
+  // Listen for storage events (cross-tab synchronization), custom policy events, and quick-extend
   useEffect(() => {
     const handleStorage = (e) => {
       if (e.key === STORAGE_LAST_ACTIVE_KEY && e.newValue) {
@@ -93,16 +97,32 @@ export default function SessionTimeoutManager() {
         lastActiveRef.current = Date.now();
         setShowWarningModal(false);
       }
+      if (e.detail?.auto_logout_idle !== undefined) {
+        setAutoLogoutIdle(Boolean(e.detail.auto_logout_idle));
+      }
+    };
+
+    const handleExtendRequest = () => {
+      const now = Date.now();
+      lastActiveRef.current = now;
+      try {
+        localStorage.setItem(STORAGE_LAST_ACTIVE_KEY, String(now));
+      } catch {}
+      setShowWarningModal(false);
+      setRemainingSeconds(timeoutMinutes * 60);
+      api.refreshSession().catch(() => {});
     };
 
     window.addEventListener("storage", handleStorage);
     window.addEventListener("session-timeout-policy-updated", handlePolicyUpdate);
+    window.addEventListener("session-extend-request", handleExtendRequest);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("session-timeout-policy-updated", handlePolicyUpdate);
+      window.removeEventListener("session-extend-request", handleExtendRequest);
     };
-  }, []);
+  }, [timeoutMinutes]);
 
   // Set initial lastActive on mount or login
   useEffect(() => {
@@ -138,9 +158,26 @@ export default function SessionTimeoutManager() {
       const now = Date.now();
       const elapsedSeconds = Math.floor((now - effectiveLastActive) / 1000);
       const totalAllowedSeconds = timeoutMinutes * 60;
-      const remaining = totalAllowedSeconds - elapsedSeconds;
+      const remaining = Math.max(0, totalAllowedSeconds - elapsedSeconds);
 
-      setRemainingSeconds(remaining > 0 ? remaining : 0);
+      setRemainingSeconds(remaining);
+
+      // Broadcast tick for topbar badge and other consumers
+      window.dispatchEvent(
+        new CustomEvent("session-timer-tick", {
+          detail: { remaining, total: totalAllowedSeconds },
+        })
+      );
+
+      if (!autoLogoutIdle) {
+        return;
+      }
+
+      // Adaptive warning: for 1 min (60s) warn at 15s; for 2 min warn at 30s; for 5+ min warn at 60s
+      const effectiveWarning = Math.min(
+        warningSeconds,
+        Math.max(10, Math.floor(totalAllowedSeconds * 0.25))
+      );
 
       if (remaining <= 0) {
         // Session expired: force logout immediately
@@ -148,10 +185,12 @@ export default function SessionTimeoutManager() {
         setShowWarningModal(false);
         try {
           localStorage.removeItem(STORAGE_LAST_ACTIVE_KEY);
+          sessionStorage.setItem("logout_reason", "timeout");
+          sessionStorage.setItem("logout_minutes", String(timeoutMinutes));
         } catch {}
         logout();
         navigate(`/login?reason=timeout&minutes=${timeoutMinutes}`, { replace: true });
-      } else if (remaining <= warningSeconds) {
+      } else if (remaining <= effectiveWarning) {
         setShowWarningModal(true);
       } else if (showWarningModal) {
         setShowWarningModal(false);
@@ -161,7 +200,7 @@ export default function SessionTimeoutManager() {
     return () => {
       clearInterval(checkInterval);
     };
-  }, [user, timeoutMinutes, warningSeconds, showWarningModal, logout, navigate]);
+  }, [user, timeoutMinutes, warningSeconds, showWarningModal, autoLogoutIdle, logout, navigate]);
 
   // Instant mobile/visibility check: When app is restored from phone lock or background tab
   useEffect(() => {
@@ -179,7 +218,11 @@ export default function SessionTimeoutManager() {
         } catch {}
 
         const elapsedSeconds = Math.floor((Date.now() - effectiveLastActive) / 1000);
-        if (elapsedSeconds >= timeoutMinutes * 60) {
+        if (autoLogoutIdle && elapsedSeconds >= timeoutMinutes * 60) {
+          try {
+            sessionStorage.setItem("logout_reason", "timeout");
+            sessionStorage.setItem("logout_minutes", String(timeoutMinutes));
+          } catch {}
           logout();
           navigate(`/login?reason=timeout&minutes=${timeoutMinutes}`, { replace: true });
         } else {
@@ -195,7 +238,7 @@ export default function SessionTimeoutManager() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleVisibilityChange);
     };
-  }, [user, timeoutMinutes, logout, navigate, recordActivity]);
+  }, [user, timeoutMinutes, autoLogoutIdle, logout, navigate, recordActivity]);
 
   // Bind activity listeners across Desktop & Mobile touch devices
   useEffect(() => {

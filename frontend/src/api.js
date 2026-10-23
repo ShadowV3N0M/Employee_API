@@ -128,10 +128,13 @@ export const api = {
       auth: false,
     }),
   getSessionConfig: () => request("/auth/session-config", { auth: false }),
-  updateSessionConfig: (timeoutMinutes) =>
+  updateSessionConfig: (timeoutMinutes, autoLogoutIdle = true) =>
     request("/auth/session-config", {
       method: "PUT",
-      body: { timeout_minutes: Number(timeoutMinutes) },
+      body: {
+        timeout_minutes: Number(timeoutMinutes),
+        auto_logout_idle: Boolean(autoLogoutIdle),
+      },
     }),
   refreshSession: async () => {
     const res = await request("/auth/refresh", { method: "POST" });

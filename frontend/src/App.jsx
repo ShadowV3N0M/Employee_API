@@ -30,7 +30,17 @@ function RequireAuth({ roles, children }) {
   const { user, loading } = useAuth();
 
   if (loading) return <p className="center-note">Loading…</p>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    let redirectUrl = "/login";
+    try {
+      const reason = sessionStorage.getItem("logout_reason");
+      const mins = sessionStorage.getItem("logout_minutes");
+      if (reason === "timeout") {
+        redirectUrl = `/login?reason=timeout${mins ? `&minutes=${mins}` : ""}`;
+      }
+    } catch {}
+    return <Navigate to={redirectUrl} replace />;
+  }
   if (roles && !roles.includes(user.role)) return <NotFound type="403" />;
 
   return children;

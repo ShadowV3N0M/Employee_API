@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 class SessionConfigResponse(BaseModel):
     timeout_minutes: int = Field(default=15, description="Portal session timeout in minutes")
     warning_seconds: int = Field(default=60, description="Warning countdown in seconds before logout")
+    auto_logout_idle: bool = Field(default=True, description="Automatically log out when idle")
     enabled: bool = Field(default=True, description="Whether session timeout is active")
 
 
@@ -15,4 +16,5 @@ class SessionConfigUpdate(BaseModel):
         le=1440,
         description="Session timeout in minutes (must be between 1 and 1440)"
     )
+    auto_logout_idle: bool = Field(default=True, description="Automatically log out when idle")
 

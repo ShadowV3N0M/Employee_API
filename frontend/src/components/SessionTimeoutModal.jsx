@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { api } from "../api";
 
-const PRESET_MINUTES = [5, 10, 15, 30, 45, 60, 120];
+const PRESET_MINUTES = [1, 2, 5, 10, 15, 30, 45, 60, 120];
 
 export default function SessionTimeoutModal({ onClose, onSaved }) {
   const [minutes, setMinutes] = useState(15);
+  const [autoLogoutIdle, setAutoLogoutIdle] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -17,6 +18,9 @@ export default function SessionTimeoutModal({ onClose, onSaved }) {
       .then((cfg) => {
         if (!mounted || !cfg) return;
         setMinutes(Number(cfg.timeout_minutes) || 15);
+        if (cfg.auto_logout_idle !== undefined) {
+          setAutoLogoutIdle(Boolean(cfg.auto_logout_idle));
+        }
       })
       .catch((err) => {
         if (mounted) setError(err.message || "Failed to load current session config.");
@@ -43,7 +47,7 @@ export default function SessionTimeoutModal({ onClose, onSaved }) {
     setSuccess("");
 
     try {
-      const res = await api.updateSessionConfig(val);
+      const res = await api.updateSessionConfig(val, autoLogoutIdle);
       const updatedMins = res.timeout_minutes;
       try {
         localStorage.setItem("portal_session_timeout", String(updatedMins));
@@ -53,7 +57,10 @@ export default function SessionTimeoutModal({ onClose, onSaved }) {
       // Broadcast update to all active components and browser tabs
       window.dispatchEvent(
         new CustomEvent("session-timeout-policy-updated", {
-          detail: { timeout_minutes: updatedMins },
+          detail: {
+            timeout_minutes: updatedMins,
+            auto_logout_idle: res.auto_logout_idle,
+          },
         })
       );
 
@@ -144,6 +151,38 @@ export default function SessionTimeoutModal({ onClose, onSaved }) {
                 />
                 <span className="muted small">minutes ({Number(minutes) > 60 ? `${(Number(minutes) / 60).toFixed(1)} hrs` : `${minutes} min`})</span>
               </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 14px",
+                background: "var(--surface-alt, #1e293b)",
+                borderRadius: "8px",
+                border: "1px solid var(--border, #334155)",
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="auto-logout-toggle"
+                  style={{ fontWeight: 600, display: "block", cursor: "pointer", color: "var(--text, #f8fafc)" }}
+                >
+                  Auto Logout on Inactivity
+                </label>
+                <span className="muted small" style={{ display: "block", marginTop: "2px" }}>
+                  Automatically sign out inactive users when idle limit expires
+                </span>
+              </div>
+              <input
+                id="auto-logout-toggle"
+                type="checkbox"
+                checked={autoLogoutIdle}
+                onChange={(e) => setAutoLogoutIdle(e.target.checked)}
+                style={{ width: "20px", height: "20px", cursor: "pointer", accentColor: "var(--primary, #6366f1)" }}
+                disabled={loading || saving}
+              />
             </div>
 
             <div

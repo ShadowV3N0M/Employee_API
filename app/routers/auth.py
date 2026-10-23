@@ -563,9 +563,18 @@ def get_session_config(db: Session = Depends(get_db)):
     except Exception:
         timeout = 15
 
+    try:
+        idle_setting = db.query(SystemSettingDB).filter(
+            SystemSettingDB.key == "session_auto_logout_idle"
+        ).first()
+        auto_logout = idle_setting.value == "true" if idle_setting else True
+    except Exception:
+        auto_logout = True
+
     return SessionConfigResponse(
         timeout_minutes=timeout,
         warning_seconds=60,
+        auto_logout_idle=auto_logout,
         enabled=True
     )
 
@@ -593,10 +602,25 @@ def update_session_config(
             )
             db.add(setting)
 
+        idle_setting = db.query(SystemSettingDB).filter(
+            SystemSettingDB.key == "session_auto_logout_idle"
+        ).first()
+
+        if idle_setting:
+            idle_setting.value = "true" if payload.auto_logout_idle else "false"
+        else:
+            idle_setting = SystemSettingDB(
+                key="session_auto_logout_idle",
+                value="true" if payload.auto_logout_idle else "false",
+                description="Automatically log out when idle"
+            )
+            db.add(idle_setting)
+
         db.commit()
         return SessionConfigResponse(
             timeout_minutes=payload.timeout_minutes,
             warning_seconds=60,
+            auto_logout_idle=payload.auto_logout_idle,
             enabled=True
         )
     except SQLAlchemyError as e:

@@ -1284,9 +1284,21 @@ textarea.input-error:focus {
 }
 
 @keyframes field-shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-3px); }
-  40%, 80% { transform: translateX(3px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-3px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(3px);
+  }
 }
 
 @keyframes field-error-slide {
@@ -1294,6 +1306,7 @@ textarea.input-error:focus {
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1627,7 +1640,7 @@ textarea.input-error:focus {
 .auth-hero-mesh-overlay {
   position: absolute;
   inset: 0;
-  background-image: 
+  background-image:
     radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
   background-size: 24px 24px;
   opacity: 0.35;
@@ -1814,8 +1827,13 @@ textarea.input-error:focus {
 }
 
 @keyframes spinSlow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .sphere-particle {
@@ -1827,10 +1845,29 @@ textarea.input-error:focus {
   box-shadow: 0 0 10px #38bdf8;
 }
 
-.sphere-particle.p-1 { top: 10%; left: 30%; }
-.sphere-particle.p-2 { bottom: 15%; right: 25%; background: #c084fc; box-shadow: 0 0 10px #c084fc; }
-.sphere-particle.p-3 { top: 40%; right: 10%; }
-.sphere-particle.p-4 { bottom: 35%; left: 15%; background: #a855f7; box-shadow: 0 0 10px #a855f7; }
+.sphere-particle.p-1 {
+  top: 10%;
+  left: 30%;
+}
+
+.sphere-particle.p-2 {
+  bottom: 15%;
+  right: 25%;
+  background: #c084fc;
+  box-shadow: 0 0 10px #c084fc;
+}
+
+.sphere-particle.p-3 {
+  top: 40%;
+  right: 10%;
+}
+
+.sphere-particle.p-4 {
+  bottom: 35%;
+  left: 15%;
+  background: #a855f7;
+  box-shadow: 0 0 10px #a855f7;
+}
 
 /* Floating glass status badges */
 .auth-floating-badge.badge-right {
@@ -1917,8 +1954,15 @@ textarea.input-error:focus {
 }
 
 @keyframes floatSlow {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 /* Typography & Headline */
@@ -1949,6 +1993,7 @@ textarea.input-error:focus {
 
 .auth-hero-gradient-text {
   background: linear-gradient(135deg, #c084fc 0%, #818cf8 50%, #38bdf8 100%);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -2516,6 +2561,7 @@ textarea.input-error:focus {
     max-width: 980px;
     min-height: 640px;
   }
+
   .auth-hero-title {
     font-size: 2rem;
   }
@@ -4867,6 +4913,7 @@ textarea.input-error:focus {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -5076,6 +5123,7 @@ textarea.input-error:focus {
 }
 
 @media (max-width: 860px) {
+
   .cookie-consent-container,
   .privacy-notice-container {
     flex-direction: column;
@@ -5173,10 +5221,12 @@ textarea.input-error:focus {
     transform: scale(0.96);
     box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
   }
+
   50% {
     transform: scale(1.04);
     box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
   }
+
   100% {
     transform: scale(0.96);
     box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
@@ -5278,8 +5328,82 @@ textarea.input-error:focus {
     flex-direction: column-reverse;
     gap: 10px;
   }
+
   .session-timeout-actions .btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* =========================================================================
+   Topbar Live Session Inactivity Idle Badge
+   ========================================================================= */
+
+.session-idle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: var(--surface-alt, rgba(30, 41, 59, 0.7));
+  border: 1px solid var(--border, rgba(148, 163, 184, 0.2));
+  border-radius: 9999px;
+  color: var(--text, #f8fafc);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.session-idle-pill:hover {
+  background: var(--surface, #1e293b);
+  border-color: var(--primary, #6366f1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.session-idle-pill:active {
+  transform: translateY(0);
+}
+
+.session-idle-icon {
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.session-idle-text {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: 0.02em;
+}
+
+.session-idle-pill.urgent {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #ef4444;
+  animation: sessionIdlePulse 1.5s infinite;
+}
+
+.session-idle-pill.urgent:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+}
+
+@keyframes sessionIdlePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(239, 68, 68, 0);
+  }
+}
+
+@media (max-width: 640px) {
+  .session-idle-pill {
+    padding: 4px 8px;
+    font-size: 0.75rem;
   }
 }

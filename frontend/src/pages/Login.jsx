@@ -39,8 +39,12 @@ export default function Login() {
   const [loginNotice, setLoginNotice] = useState(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("reason") === "timeout") {
-        const mins = params.get("minutes");
+      const sessionReason = sessionStorage.getItem("logout_reason");
+      const sessionMins = sessionStorage.getItem("logout_minutes");
+      if (params.get("reason") === "timeout" || sessionReason === "timeout") {
+        const mins = params.get("minutes") || sessionMins;
+        sessionStorage.removeItem("logout_reason");
+        sessionStorage.removeItem("logout_minutes");
         return mins
           ? `You have been signed out automatically due to ${mins} minutes of inactivity.`
           : "You have been signed out automatically due to inactivity.";

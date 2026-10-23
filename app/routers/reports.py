@@ -175,7 +175,7 @@ def get_employee_directory_pdf(
         query = query.filter(EmployeeDB.is_active == False)  # noqa: E712
     else:
         if not is_privileged:
-            query = query.filter(EmployeeDB.is_active == True)  # noqa: E712
+            raise HTTPException(status_code=403, detail="Standard users cannot view full employee directory including inactive records")
 
     # Department filter
     dept_name_filter = None
