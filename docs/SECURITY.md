@@ -1,8 +1,8 @@
 # Security Architecture & Threat Model
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.4  
-**Date:** October 2026  
+**Version:** 2.5  
+**Date:** October 23, 2026  
 **Scope:** Authentication, Authorization, Cryptography, Data Masking & Defense-in-Depth  
 
 ---
@@ -71,6 +71,15 @@ The application enforces a **Defense-in-Depth** security architecture designed t
 - **Single-Use Enforcement:** The `used` boolean flag transitions to `True` upon successful password change. Tokens cannot be reused.
 - **Expiration:** Tokens are valid for exactly **15 minutes**.
 - **User Enumeration Prevention:** Calling `POST /auth/forgot-password` returns a generic success message (`"If this identifier is registered, a password reset link has been sent."`) regardless of whether the identifier exists, preventing account enumeration.
+
+### 2.4 Inactivity Session Timeout & Token Revocation
+- **Universal Multi-Device Monitoring:** Inactivity listener monitors user actions (`mousedown`, `mousemove`, `keydown`, `touchstart`, `touchmove`, `touchend`, `scroll`, `wheel`, and `click`) across all authenticated roles (`admin`, `manager`, `user`).
+- **Policy Persistence (`system_setting`):** Managed globally in the database under `session_timeout_minutes` and `session_auto_logout_idle`, fetched via `GET /auth/session-config` and updated via `PUT /auth/session-config`.
+- **Dynamic Warning Shield:** Displays a security modal before auto-logout occurs. Warning thresholds scale dynamically with session length (15s for 1 min, 30s for 2 min, up to 60s for 5+ min), preventing premature modal popups on short testing sessions.
+- **Cross-Tab & State Sync:** Uses `localStorage` timestamp keys (`session_last_active`, `portal_session_timeout`) so actions in any tab keep all tabs alive simultaneously.
+- **Mobile Background & Sleep Detection:** Uses `visibilitychange` and `window.focus` handlers to immediately revoke tokens if a phone returns from a sleep/lock screen past the timeout limit.
+- **Forced Token Clearance:** On expiration, clears JWT tokens, purges cached user state, and redirects to `/login?reason=timeout&minutes=X` with an explicit alert banner.
+- **Session Refresh Ping:** Calling `POST /auth/refresh-session` allows active users to refresh session validity without disrupting existing workflows.
 
 ---
 
@@ -148,3 +157,26 @@ The API uses `slowapi` with in-memory IP bucket limiters to mitigate brute-force
 - Allowed file extensions: `.xlsx`, `.xls`, `.csv`.
 - In-memory stream processing (`io.BytesIO`) prevents malicious files from writing to server disk.
 - Safe XML parsing: Pure Python XML fallback utilizes Python's built-in `xml.etree.ElementTree` configured to prevent XML External Entity (XXE) attacks.
+
+### 4.5 HTTPS Redirection & HSTS Enforcements
+- **Automated Transport Encryption:** When `ENFORCE_HTTPS=True` (or behind an SSL termination reverse proxy), all insecure HTTP requests are permanently redirected to HTTPS with HTTP 301.
+- **HTTP Strict Transport Security (HSTS):** Automatically appends the `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` header to all HTTPS responses, instructing browsers to strictly refuse insecure plaintext connections for 1 year.
+- **Security Headers Injected:**
+  - `X-Content-Type-Options: nosniff` (MIME-sniffing prevention)
+  - `X-Frame-Options: SAMEORIGIN` (Clickjacking defense)
+  - `Referrer-Policy: strict-origin-when-cross-origin` (Information leakage prevention)
+  - `Secure` flag enforced on all Set-Cookie headers in HTTPS contexts.
+- **Client-Side Redirection:** The frontend `<head>` includes automatic HTTPS redirection for all non-local hostnames.
+
+### 4.6 Cookie Consent & Privacy Compliance
+- **GDPR / ePrivacy Compliance:** Interactive `<PrivacyNotice />` banner rendered across all pages.
+- **Categorized Storage:**
+  - *Strictly Necessary:* JWT authentication token (`emp_token`) and HTTPS routing tokens (always enabled).
+  - *Preferences & Functionality:* Theme mode choice (`emp_theme`) and layout states (toggleable).
+  - *Performance & Analytics:* Response latency and telemetry (toggleable).
+- **Persistent Preferences:** Preferences are stored in `localStorage` (`cookie_consent_preferences`) and can be re-opened and modified at any time via the floating 🍪 button (docked cleanly in the bottom-left without occluding navigation) or the user profile dropdown.
+
+### 4.7 Browser Privacy Shield & Adblocker Defense
+- **Brave Shield / Adblocker Resilience:** Aggressive browser shields (such as Brave Shields or uBlock Origin) often intercept compliance scripts or external telemetry.
+- **Resilient Lazy Load Guard:** In `App.jsx`, compliance components are dynamically imported inside a `.catch()` fallback handler. If an adblocker blocks compliance scripts from loading, the exception is caught safely, allowing core authentication and application routes to render without blank screen errors.
+

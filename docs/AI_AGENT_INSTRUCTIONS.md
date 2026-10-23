@@ -3,7 +3,8 @@
 **Project:** Enterprise Employee & Payroll Management System  
 **Audience:** Autonomous AI Agents (Antigravity, Cursor, Copilot, Claude Code, Devins)  
 **Status:** Mandatory Implementation Standard  
-**Last Updated:** October 2026  
+**Version:** 2.5  
+**Last Updated:** October 23, 2026  
 
 ---
 
@@ -92,6 +93,39 @@ else:
 
 ---
 
+### 🔴 Invariant 7: Test Database Isolation Rule
+When executing automated tests with `pytest`:
+- `test_main.py` binds to `test.db` and drops tables on module teardown.
+- `test_reports.py` must use its own dedicated test database (`test_reports.db`).
+- *Rationale:* Sharing `test.db` across multiple test files causes inter-module race conditions and schema teardown collisions during full test runs.
+
+---
+
+### 🔴 Invariant 8: Windows Application Control Policy Invocation
+On Windows workstations with strict Application Control policies:
+- Directly invoking `uvicorn.exe` from `venv\Scripts\uvicorn.exe` may be blocked by system security policy (`NativeCommandFailed`).
+- **Rule:** Always invoke `uvicorn` and `pytest` through the Python interpreter module flag:
+  ```powershell
+  & "D:\Sagar\Python\venv\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  & "D:\Sagar\Python\venv\Scripts\python.exe" -m pytest
+  ```
+
+---
+
+### 🔴 Invariant 9: Privacy Shield & Adblocker Resilient Lazy Loading
+When lazy-loading compliance, analytics, or external notice components (`PrivacyNotice.jsx`):
+- Strict browser shields (such as Brave Shields) or aggressive adblockers frequently intercept and block scripts matching compliance patterns.
+- **Rule:** In `App.jsx`, always wrap dynamic imports with a `.catch()` fallback returning `{ default: () => null }` so the primary application (Login, Dashboard) remains 100% operational.
+
+---
+
+### 🔴 Invariant 10: Inactivity Logout State & URL Query Preservation
+When `logout()` is triggered automatically due to inactivity:
+- `logout()` synchronously clears the authenticated `user` state, causing `RequireAuth` in `App.jsx` to render `<Navigate to="/login" replace />`.
+- To prevent stripping the query parameter `?reason=timeout&minutes=...`, always store `logout_reason` and `logout_minutes` in `sessionStorage` before calling `logout()`. Both `RequireAuth` and `Login.jsx` read `sessionStorage` as a fallback to reliably display the timeout alert banner.
+
+---
+
 ## 3. Standard Operating Commands
 
 ### 3.1 Python Backend & Test Suite
@@ -131,7 +165,8 @@ Always invoke Python through the active virtual environment:
 Before marking any coding task complete or reporting results back to the user, every AI agent must execute this verification checklist:
 
 1. [ ] **Dual-Sync Verification:** Were modified frontend files in `employee_frontend/src/` copied to `employee_api/frontend/src/`?
-2. [ ] **Test Execution:** Did `pytest` run with **100% pass rate** (0 failures, 0 errors)?
+2. [ ] **Test Execution:** Did `pytest` run with **100% pass rate** (46/46 passed, 0 failures, 0 errors)?
 3. [ ] **Frontend Build Verification:** Did `npm run build` finish successfully with 0 compilation errors?
 4. [ ] **No Regression in Core Invariants:** Did you verify that `node.exe` was untouched in `employee_api/frontend/`?
 5. [ ] **Docstring & Comment Integrity:** Were all existing unrelated docstrings, comments, and type hints preserved?
+

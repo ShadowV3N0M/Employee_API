@@ -1,8 +1,8 @@
 # Architecture & Data Specification
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.4  
-**Date:** October 2026  
+**Version:** 2.5  
+**Date:** October 23, 2026  
 **Scope:** Frontend, Backend, Database, Real-Time Networking & Data Pipeline  
 
 ---
@@ -62,7 +62,7 @@ The system implements a decoupled, modern client-server architecture consisting 
 |   |  - employee                  - salary_history        - department         |   |
 |   |  - user                      - password_reset_token  - department_history |   |
 |   |  - employee_emergency_contact- holiday               - notification       |   |
-|   |  - announcement                                                           |   |
+|   |  - announcement              - system_setting                             |   |
 |   |                                                                           |   |
 |   |   Dialects: MySQL 8.x (Production) | SQLite 3 (Testing & Dev)             |   |
 |   +---------------------------------------------------------------------------+   |
@@ -89,10 +89,11 @@ employee_api/
 │   │   ├── employee.py    # EmployeeDB, SalaryHistoryDB, EmergencyContactDB
 │   │   ├── holiday.py     # HolidayDB, AnnouncementDB
 │   │   ├── notification.py# NotificationDB
+│   │   ├── system_setting.py# SystemSettingDB (session timeout & portal config)
 │   │   └── user.py        # UserDB, PasswordResetTokenDB
 │   ├── routers/           # HTTP & WebSocket route handlers
 │   │   ├── analytics.py   # Headcount metrics, department budget summaries
-│   │   ├── auth.py        # Register, login, user management, password reset
+│   │   ├── auth.py        # Register, login, session timeout policy, token refresh, password reset
 │   │   ├── departments.py # Department CRUD & budget revisions
 │   │   ├── employees.py   # Employee CRUD, bulk delete/restore, auto-shift, Excel endpoints
 │   │   ├── health.py      # Liveness & readiness probes
@@ -114,7 +115,13 @@ employee_api/
 
 The frontend is structured as a modular component hierarchy with clean state boundaries:
 
-- **Routing & Guards (`App.jsx`):** Employs `react-router-dom` v6 with declarative route definitions. Routes are protected via `<ProtectedRoute allowedRoles={[...]} />`. Unauthorized requests redirect to `/login`.
+- **Routing & Guards (`App.jsx`):** Employs `react-router-dom` v6 with declarative route definitions. Routes are protected via `<RequireAuth allowedRoles={[...]} />`. Unauthorized or expired sessions redirect to `/login`, preserving `logout_reason` and duration via query parameters and `sessionStorage`.
+- **Privacy Shield & Adblocker Resilience:** Resilient lazy-loading of compliance components (`PrivacyNotice.jsx`) with rejection error trapping, ensuring browser privacy shields (like Brave Shields) never cause blank screen crashes on login or dashboard routes.
+- **Session Timeout & Inactivity Management:**
+  - `SessionTimeoutManager.jsx`: Global inactivity detector listening across desktop and mobile devices (`mousedown`, `keydown`, `touchstart`, `scroll`, `visibilitychange`), broadcasting 1-second countdown ticks, and triggering automatic logout upon expiration.
+  - `SessionIdleBadge.jsx`: Real-time countdown badge mounted in the topbar (`⏳ 14:48`) with click-to-extend functionality and urgent amber/red alert states.
+  - `SessionTimeoutModal.jsx`: Administrative configuration dialog with quick testing presets (1, 2, 5, 10, 15, 30, 45, 60, 120 min) and global auto-logout toggle.
+- **Modern Authentication Experience (`Login.jsx`):** Split-screen layout featuring a dynamic cybernetic attendance showcase on the left (live clock, system date, greeting, attendance metrics without photos/logos) and an elevated 3D card flip form on the right (Sign In, Account Recovery, Registration).
 - **API Client Layer (`api.js`):** Unified fetch abstraction handling JSON payloads, URL search parameters, authorization header injection (`Bearer <token>`), automatic 401 token invalidation triggers, and friendly error unwrapping.
 - **Context Providers:**
   - `NotificationContext.jsx`: Manages live WebSocket lifecycle, automatic reconnect backoff, synthesized Web Audio chime, floating toast queue, and unread badge state.
@@ -295,3 +302,4 @@ db.commit()                   db.rollback()
 | **Vite Dev Server** | HTTP | `5173` | `VITE_PORT` | Local frontend development |
 | **Production Client**| HTTP / Static| `4173` (preview) / NGINX | - | Production static web hosting |
 | **MySQL Database**  | TCP / MySQL | `3306` | `DATABASE_URL` | Production persistent storage |
+

@@ -927,6 +927,55 @@ git reset --soft HEAD~1
   - **Department Management (`Departments.jsx`):** Direct `📑 Budget PDF Report` button for executive leadership.
   - **Self-Service Profile (`Profile.jsx`):** Quick download buttons for `🧾 My Payslip (PDF)` and `📄 Compensation Letter (PDF)`.
 
+### 24. HTTPS Enforcement, HSTS & Cookie Consent Compliance
+- **Transport Layer Security & Automated Redirects:**
+  - Automated HTTP-to-HTTPS redirect middleware across all non-local hosts.
+  - Injects `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload` header to ensure browsers enforce HTTPS connections.
+  - Sets security headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`.
+- **Granular Cookie Consent System (`PrivacyNotice.jsx`):**
+  - EU GDPR and ePrivacy compliant cookie consent banner with interactive modal.
+  - Categories: Strictly Necessary (`emp_token`), Functional Preferences (`emp_theme`, layout state), and Analytics.
+  - Persistent state in `localStorage` (`cookie_consent_preferences`).
+  - Floating cookie settings trigger (`Cookie Settings 🍪`) docked in the bottom-left viewport without occluding navigation links or action buttons.
+
+### 25. Browser Privacy Shield & Adblocker Resilience
+- **Resilient Dynamic Imports:**
+  - In `App.jsx`, compliance scripts and privacy notices are lazy-loaded within a `.catch()` fallback handler.
+  - Prevents aggressive browser shields (such as Brave Shields) or third-party adblockers from halting script execution, ensuring that `/login` and main application dashboard routes render reliably without blank screen crashes.
+
+### 26. Modern Split-Screen Hero Authentication & 3D Card Flip Experience
+- **Showcase Stage (Left Column):**
+  - Cybernetic grid background with ambient illumination glows.
+  - Dynamic live digital clock updating in real time with 1-second precision.
+  - Current calendar date and contextual greeting (`GOOD MORNING`, `GOOD AFTERNOON`, `GOOD EVENING`).
+  - Central animated digital network core with orbital rings and attendance verification status banners (strictly without corporate logos or photography).
+  - 4-column feature strip: Secure attendance, Real-time tracking, Insightful reports, Team connected.
+- **Elevated 3D Card Stage (Right Column):**
+  - Modern card with 3D perspective flip between Sign In and Self-Service Registration / Account Recovery (Forgot Password).
+  - "Remember me" persistence via `localStorage`.
+  - Password visibility toggle (Show/Hide).
+  - Inline validation feedback paired with `<FieldError />`.
+  - Informative security indicator footer (`System secure • Secure access • Date`).
+
+### 27. Universal Session Timeout Management & Automatic Inactivity Logout
+- **Universal Multi-Device Activity Tracking:**
+  - Inactivity detector (`SessionTimeoutManager.jsx`) monitors user actions across Web and Mobile: mouse clicks, cursor movement, keystrokes, touches, scrolls, and wheel interactions.
+  - Inter-tab synchronization via `localStorage` timestamp (`session_last_active`).
+  - Mobile background / phone lock detection using `visibilitychange` and `window.focus` to force instant logout upon returning past the threshold.
+- **Topbar Live Countdown Badge (`SessionIdleBadge.jsx`):**
+  - Mounted in the topbar (`Layout.jsx`), displaying the real-time idle countdown pill (e.g. `⏳ 14:32`).
+  - Switches to an urgent pulsing red state (`⚠️ 00:45`) when remaining time drops below 60 seconds.
+  - One-click instant session extension without page reload.
+- **Adaptive Security Warning Modal:**
+  - Dynamic warning threshold (15s for 1 min, 30s for 2 min, up to 60s for 5+ min), preventing premature modal popups during testing.
+- **Security Logout & Reason Preservation:**
+  - When the idle limit expires, automatically logs out, clears authentication tokens, and redirects to `/login?reason=timeout&minutes=X` with an informative banner.
+  - Fallback via `sessionStorage` ensures that navigation redirects never wipe the timeout notification.
+- **Admin Configuration & Database Persistence (`system_setting`):**
+  - `GET /auth/session-config` & `PUT /auth/session-config` (Admin only) managing global timeout and the `auto_logout_idle` toggle.
+  - Preset options in `SessionTimeoutModal.jsx`: 1, 2, 5, 10, 15, 30, 45, 60, 120 minutes.
+  - Token refresh endpoint `POST /auth/refresh-session`.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -951,6 +1000,11 @@ git reset --soft HEAD~1
 - [x] **Admin Permanent Employee Deletion & Auto-Resequencing of Emp_IDs** - Admin can permanently delete an employee directly from the edit form; cascades salary history deletion and automatically decrements all subsequent Emp_IDs by 1 in an atomic transaction so employee IDs remain strictly consecutive without gaps
 - [x] **PDF export & official report generator** - Official payslip vouchers, department expense statements, employee directories, and salary revision letters via `reportlab` with running headers, footers, and two-pass page numbering
 - [x] **Employee Analytics** - Visual KPI cards, Employee Attendence and other details utilization progress bars and Pie Charts, and breakdown tables for managers, admins & Users
+- [x] **HTTPS Redirection & HSTS Enforcements** - Automated HTTP-to-HTTPS redirect middleware and Strict-Transport-Security headers
+- [x] **Cookie Consent & Granular Privacy Preference Management** - Interactive cookie notice with categorized storage controls and non-intrusive floating trigger
+- [x] **Privacy Shield Resilient Dynamic Loading** - Protected lazy-load error boundaries ensuring Brave Shields and adblockers never crash core login or dashboard routes
+- [x] **Modern Split-Screen Hero Sign-In Experience** - Cybernetic attendance showcase with live clock, current date, greeting, and 3D flip card authentication
+- [x] **Universal Session Timeout Management & Inactivity Auto-Logout** - Cross-device idle tracking, topbar live countdown pill (`⏳ 14:32`), adaptive warning modal, and automatic secure logout
 - [ ] **Employee attendance & time-tracking module** - Real-time clock-in/out, punch logs, work hour analytics, and regularization requests
 - [ ] **Leave & time-off management system** - Accrual balances, multi-day leave applications, and multi-tier manager approval workflows
 - [ ] **Performance appraisal & review management** - Evaluation cycles, metric scorecards, and appraisal-driven salary increment integrations

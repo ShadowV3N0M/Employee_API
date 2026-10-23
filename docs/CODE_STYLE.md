@@ -1,8 +1,8 @@
 # Code Style & Engineering Standards
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.4  
-**Date:** October 2026  
+**Version:** 2.5  
+**Date:** October 23, 2026  
 **Scope:** Python (FastAPI/SQLAlchemy), JavaScript (React 19), Native CSS & Git Workflows  
 
 ---
@@ -106,6 +106,11 @@ Forms must strictly follow the three-tier validation timing pattern:
   }, [id]);
   ```
 
+### 3.5 High-Frequency Event Throttling & Resilient Imports
+- **Passive Activity Listeners:** High-frequency event listeners (`mousemove`, `touchmove`, `scroll`, `wheel`) must always register with `{ passive: true }` to maintain smooth 60fps scrolling and eliminate UI jank.
+- **Storage Write Throttling:** Write operations to `localStorage` triggered by user activity must be throttled to at most once every $2\text{ seconds}$ to avoid excessive disk I/O.
+- **Resilient Dynamic Imports:** When lazy-loading third-party compliance or privacy modules that could be blocked by browser privacy shields (e.g. Brave Shields), wrap imports with a `.catch()` fallback returning a dummy component (`{ default: () => null }`) to ensure core application routes render safely without throwing unhandled promise rejections.
+
 ---
 
 ## 4. CSS & Styling Conventions
@@ -156,3 +161,4 @@ Before committing any changes:
 1. Run backend tests: `& "..\venv\Scripts\python.exe" -m pytest` (100% pass required).
 2. Build frontend: `npm run build` (0 errors required).
 3. Synchronize `employee_frontend/src/` changes to `employee_api/frontend/src/`.
+

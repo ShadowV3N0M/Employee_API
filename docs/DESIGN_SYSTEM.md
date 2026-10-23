@@ -1,8 +1,8 @@
 # Design System Specification
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.4  
-**Date:** October 2026  
+**Version:** 2.5  
+**Date:** October 23, 2026  
 **Scope:** Design Tokens, Typography, Components, Theme Engine & Accessibility Guidelines  
 
 ---
@@ -152,6 +152,35 @@ Buttons are available in four functional variants:
 - Red badge counter highlighting unread notifications.
 - Floating toast alert positioning in the bottom-right viewport with progress bar auto-dismissal (4000ms).
 
+### 5.6 Inactivity Idle Badge & Security Timeout Dialog
+- **Topbar Inactivity Badge (`.session-idle-pill`):**
+  - Pill button container with monospace tabular numbers for stable countdown display.
+  - Hover elevation with brand outline and 1-click quick-extend action.
+  - Urgent State (`.session-idle-pill.urgent` when $\le 60\text{s}$): soft red background, red border, and pulsing box-shadow animation (`@keyframes sessionIdlePulse`).
+- **Security Timeout Dialog (`.session-timeout-card`):**
+  - High z-index fixed backdrop (`z-index: 99999`) with strong blur (`backdrop-filter: blur(8px)`).
+  - Centered elevated card featuring an animated sand timer icon pulse (`.session-timeout-icon-pulse`).
+  - Prominent countdown numeric readout and animated progress bar (`.session-progress-bar-fill`).
+  - Accessible action buttons (`Stay Signed In` as auto-focused primary, `Sign Out Now` as secondary).
+
+### 5.7 Modern Split-Screen Hero Authentication & 3D Card Flip
+- **Showcase Stage (`.auth-hero-showcase`):**
+  - Left column featuring cybernetic ambient glow orbs, subtle grid mesh, dynamic live clock with millisecond precision, current system date, and contextual greeting (`GOOD MORNING/AFTERNOON/EVENING`).
+  - Digital network sphere with orbital rings, core glow, and attendance verification status banners (strictly without corporate logos or photography).
+  - 4-column feature strip detailing platform pillars (`Secure attendance`, `Real-time tracking`, `Insightful reports`, `Team connected`).
+- **3D Card Flip Auth Stage (`.auth-card-stage`, `.auth-flip-card`):**
+  - Right column with 3D perspective (`perspective: 1200px`) and smooth flip transition (`transform: rotateY(180deg)`).
+  - Front face: Sign In form with email/ID input, password visibility reveal, "Remember me" persistence, primary submit button, and Microsoft SSO placeholder.
+  - Back face: Self-Service Registration and Account Recovery (Forgot Password) forms.
+  - Security indicator footer with green status pulse dot (`System secure • Secure access • Friday, Oct 23, 2026`).
+
+### 5.8 Cookie Compliance & Floating Controls
+- **Floating Settings Trigger (`.privacy-notice-pill`):**
+  - Positioned fixed in bottom-left viewport (`bottom: 20px; left: 20px; z-index: 900`).
+  - Compact glassmorphism pill (`Cookie Settings 🍪`) positioned cleanly without hovering over or occluding user avatars, navigation links, or action buttons.
+- **Granular Settings Modal:**
+  - Categorized consent switches for Strictly Necessary (locked), Functional Preferences, and Analytics with one-click Save & Accept.
+
 ---
 
 ## 6. Responsive Breakpoints
@@ -174,3 +203,4 @@ Buttons are available in four functional variants:
   .app-container { max-width: 1280px; margin: 0 auto; }
 }
 ```
+

@@ -1,10 +1,10 @@
 # Product Requirements Document (PRD)
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.4  
+**Version:** 2.5  
 **Status:** Active / Production-Ready  
 **Authors:** Engineering & Product Team  
-**Last Updated:** October 2026  
+**Last Updated:** October 23, 2026  
 
 ---
 
@@ -45,6 +45,8 @@ The **Enterprise Employee & Payroll Management System** provides a reactive, hig
 - **FR-AUTH-3 (Live Role Verification):** User roles must be queried from the database on every protected request. Role elevation or demotion by an admin takes effect immediately without requiring user re-authentication.
 - **FR-AUTH-4 (Self-Service Password Reset):** Two-step forgot-password workflow generating cryptographically secure, single-use, time-bound reset tokens (`POST /auth/forgot-password` and `POST /auth/reset-password`).
 - **FR-AUTH-5 (Admin User Management):** Superuser portal to view all system accounts, update roles, toggle active status, and link user logins to underlying employee records (`POST /employees/link-user`).
+- **FR-AUTH-6 (Session Timeout & Inactivity Auto-Logout):** Universal inactivity tracking across all authenticated roles (`admin`, `manager`, `user`) and devices (Web & Mobile: mouse, keyboard, touch, scroll). Real-time idle countdown pill in the topbar (`SessionIdleBadge.jsx`) with 1-click session extension. Dynamic adaptive warning modal (15s for 1 min, 30s for 2 min, up to 60s for 5+ min). Automatic termination upon expiration with token clearing and redirect to `/login?reason=timeout&minutes=X` displaying an alert banner. Configured via `GET /auth/session-config` and `PUT /auth/session-config` with presets (1, 2, 5, 10, 15, 30, 45, 60, 120 mins) and global toggle.
+- **FR-AUTH-7 (Modern Split-Screen Hero Sign-In Experience & 3D Card Flip):** Two-column authentication experience (`Login.jsx`). Left side features an ambient cybernetic attendance showcase with real-time live clock, current system date, contextual greeting (`GOOD MORNING/AFTERNOON/EVENING`), and 4-column feature strip (strictly without photos/logos). Right side presents an elevated HR card with 3D flip animation between Sign In and Account Recovery (Forgot Password) / Self-Service Registration, "Remember me" persistence, password reveal toggles, inline validation, and Microsoft SSO placeholder.
 
 ### 3.2 Employee Lifecycle & Data Integrity
 - **FR-EMP-1 (Employee Directory & Pagination):** Paginated listing (`GET /employees`) supporting column sorting (`Emp_ID`, `F_Name`, `L_Name`, `Salary`, `Dept_ID`, `joining_date`), keyword search, department filtering, and active/inactive status toggling.
@@ -94,9 +96,14 @@ The **Enterprise Employee & Payroll Management System** provides a reactive, hig
 
 ### 3.9 Official Enterprise PDF Generator Hub
 - **FR-PDF-1 (Monthly Payslip Voucher):** Formal printable A4 PDF featuring company header, employee details, two-column earnings/deductions breakdown, net pay in figures and words, and authorization stamp.
-- **FR-PDF-2 (Employee Directory & Headcount Report):** Landscape A4 tabular roster grouped by department with KPI summary boxes and active status indicators.
+- **FR-PDF-2 (Employee Directory & Headcount Report):** Landscape A4 tabular roster grouped by department with KPI summary boxes and active status indicators. Role-tailored: managers and admins see compensation columns, regular users see directory records with active status.
 - **FR-PDF-3 (Department Budget & Expense Statement):** Financial breakdown comparing department budgets against total monthly salary liabilities.
 - **FR-PDF-4 (Salary Revision Letter):** Official formal revision letter detailing previous salary, increment percentage, revised compensation, effective date, and HR sign-off.
+
+### 3.10 Security Compliance & Privacy Shield Resilience
+- **FR-COMP-1 (HTTPS Enforcement & HSTS):** Automatic HTTP-to-HTTPS redirect middleware and `Strict-Transport-Security` header injection across production endpoints.
+- **FR-COMP-2 (Granular Cookie Consent & Floating Settings):** GDPR/ePrivacy compliant cookie notice banner (`PrivacyNotice.jsx`) categorizing cookies into Necessary, Functional/Preferences, and Analytics. Persistent preferences stored in `localStorage` with a non-intrusive floating trigger located in the bottom-left viewport without occluding UI elements.
+- **FR-COMP-3 (Privacy Shield & Adblocker Resilience):** Resilient lazy loading in `App.jsx` catching script blockades so strict browser shields (e.g. Brave Shields) or adblockers never cause blank screen crashes on login or dashboard pages.
 
 ---
 
@@ -130,5 +137,6 @@ The **Enterprise Employee & Payroll Management System** provides a reactive, hig
 
 1. **Zero Overwrite Rate:** $100\%$ success in preserving existing employee records during duplicate ID additions via the auto-shift mechanism.
 2. **Consecutive ID Integrity:** $0$ gaps in employee ID sequences following permanent hard deletions.
-3. **Test Suite Health:** $100\%$ pass rate across the automated `pytest` test suite ($43+$ integration tests).
+3. **Test Suite Health:** $100\%$ pass rate across the automated `pytest` test suite ($46$ integration tests across `test_main.py` and `test_reports.py`).
 4. **Build Reliability:** Zero errors or untyped warnings during `npm run build`.
+

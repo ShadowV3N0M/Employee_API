@@ -1,8 +1,8 @@
 # Database Architecture & Schema Specification
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.4  
-**Date:** October 2026  
+**Version:** 2.5  
+**Date:** October 23, 2026  
 **Engines Supported:** MySQL 8.x (Production) | SQLite 3 (Automated Testing & Local Dev)  
 
 ---
@@ -128,6 +128,13 @@ erDiagram
         varchar link
         boolean is_read
         datetime created_at
+    }
+
+    SYSTEM_SETTING {
+        varchar key PK
+        varchar value
+        varchar description
+        datetime updated_at
     }
 ```
 
@@ -297,6 +304,20 @@ CREATE TABLE notification (
 );
 ```
 
+### 2.11 Table: `system_setting`
+Stores global system configuration, security policies, and inactivity session timeouts.
+```sql
+CREATE TABLE system_setting (
+    `key` VARCHAR(50) PRIMARY KEY,
+    `value` VARCHAR(255) NOT NULL,
+    description VARCHAR(255) NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+**Standard Key-Value Catalog:**
+- `session_timeout_minutes`: Global inactivity timeout in minutes (default: `"15"`).
+- `session_auto_logout_idle`: Toggle (`"true"` or `"false"`) determining whether inactive users are automatically logged out.
+
 ---
 
 ## 3. Resequencing & Auto-Shift Algorithms
@@ -364,3 +385,4 @@ When an employee record is permanently deleted:
 
 - **Seed Script (`seed_data.py`):** Inserts initial departments (Engineering, HR, Marketing, Finance, Sales) and default administrative credentials.
 - **SQL Reset (`reset_and_seed.sql`):** Drops and recreates all tables cleanly for staging environments.
+
