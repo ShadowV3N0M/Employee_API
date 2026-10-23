@@ -1,27 +1,28 @@
 """Tests for official reports and PDF generation endpoints."""
+from app.config import limiter
+from app.auth.security import create_access_token, hash_password
+from app.models.user import UserDB
+from app.models.department import DepartmentDB
+from app.models.employee import EmployeeDB
+from app.database import Base, get_db
+from app.main import app
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from fastapi.testclient import TestClient
+import pytest
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.main import app
-from app.database import Base, get_db
-from app.models.employee import EmployeeDB
-from app.models.department import DepartmentDB
-from app.models.user import UserDB
-from app.auth.security import create_access_token, hash_password
-from app.config import limiter
 
 limiter.enabled = False
 
 TEST_REPORTS_DB_URL = "sqlite:///./test_reports.db"
-test_engine = create_engine(TEST_REPORTS_DB_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+test_engine = create_engine(TEST_REPORTS_DB_URL, connect_args={
+                            "check_same_thread": False})
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=test_engine)
 
 
 def override_get_db():
@@ -39,13 +40,17 @@ def setup_reports_db():
     Base.metadata.create_all(bind=test_engine)
     db = TestingSessionLocal()
     try:
-        dept = DepartmentDB(Dept_ID=1, Dept_Name="Engineering", Budget=1000000.0)
+        dept = DepartmentDB(
+            Dept_ID=1, Dept_Name="Engineering", Budget=1000000.0)
         db.add(dept)
-        admin = UserDB(username="admin_test", hashed_password=hash_password("admin123"), role="admin", is_active=True)
+        admin = UserDB(username="admin_test", hashed_password=hash_password(
+            "admin123"), role="admin", is_active=True)
         db.add(admin)
-        user = UserDB(username="user_test", hashed_password=hash_password("user123"), role="user", is_active=True)
+        user = UserDB(username="user_test", hashed_password=hash_password(
+            "user123"), role="user", is_active=True)
         db.add(user)
-        emp = EmployeeDB(Emp_ID=1, F_Name="Test", L_Name="User", Salary=60000.0, Dept_ID=1, Address="Test Address", is_active=True)
+        emp = EmployeeDB(Emp_ID=1, F_Name="Test", L_Name="User",
+                         Salary=60000.0, Dept_ID=1, Address="Test Address", is_active=True)
         db.add(emp)
         db.commit()
     finally:
@@ -74,7 +79,8 @@ def client():
 
 @pytest.fixture
 def admin_token(db_session):
-    admin_user = db_session.query(UserDB).filter(UserDB.role == "admin").first()
+    admin_user = db_session.query(UserDB).filter(
+        UserDB.role == "admin").first()
     return create_access_token({"sub": admin_user.username, "role": "admin"})
 
 
@@ -152,6 +158,17 @@ def test_department_budget_forbidden_for_regular_user(client, regular_user_token
         pytest.skip("No regular user account in DB")
     res = client.get(
         "/reports/departments/pdf",
+        headers={"Authorization": f"Bearer {regular_user_token}"},
+    )
+    assert res.status_code == 403
+
+
+def test_employee_directory_forbidden_for_regular_user(client, regular_user_token):
+    """Regular employees cannot access the employee directory PDF."""
+    if not regular_user_token:
+        pytest.skip("No regular user account in DB")
+    res = client.get(
+        "/reports/employees/pdf?status=all",
         headers={"Authorization": f"Bearer {regular_user_token}"},
     )
     assert res.status_code == 403
