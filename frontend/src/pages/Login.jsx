@@ -11,8 +11,22 @@ export default function Login() {
   const navigate = useNavigate();
 
   // Flip State: false = Front (Sign in), true = Back (Register or Forgot Password)
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [backMode, setBackMode] = useState("register"); // "register" | "forgot"
+  const [isFlipped, setIsFlipped] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("mode") === "register" || params.get("mode") === "forgot";
+    } catch {
+      return false;
+    }
+  });
+  const [backMode, setBackMode] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("mode") === "forgot" ? "forgot" : "register";
+    } catch {
+      return "register";
+    }
+  });
 
   // Remember me state
   const [rememberMe, setRememberMe] = useState(() => {
@@ -489,6 +503,32 @@ export default function Login() {
                       </span>
                     </div>
 
+                    {/* Prominent Mode Toggle: Sign In vs Register */}
+                    <div className="auth-mode-toggle-group" role="tablist" aria-label="Authentication mode selection">
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={!isFlipped}
+                        className={`auth-mode-tab ${!isFlipped ? "active" : ""}`}
+                        onClick={flipToLogin}
+                        tabIndex={isFlipped ? -1 : 0}
+                      >
+                        <span className="auth-tab-icon" aria-hidden="true">🔑</span>
+                        <span>Sign In</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={isFlipped && backMode === "register"}
+                        className={`auth-mode-tab ${isFlipped && backMode === "register" ? "active" : ""}`}
+                        onClick={flipToRegister}
+                        tabIndex={isFlipped ? -1 : 0}
+                      >
+                        <span className="auth-tab-icon" aria-hidden="true">✨</span>
+                        <span>Register</span>
+                      </button>
+                    </div>
+
                     <div className="auth-greeting-tag">{greeting}</div>
                     <h2 className="auth-heading">Sign in to your workspace</h2>
                     <p className="auth-subheading">Your attendance, leave and workday—all in one place.</p>
@@ -655,16 +695,16 @@ export default function Login() {
 
                   {/* Switch to Account Registration */}
                   <div className="auth-create-account-wrap">
-                    <span className="muted small">No account yet? </span>
+                    <span className="muted small">Don't have an account? </span>
                     <button
                       type="button"
-                      className="flip-toggle-btn"
+                      className="auth-switch-pill-btn"
                       disabled={isFlipped}
                       tabIndex={isFlipped ? -1 : 0}
                       onClick={flipToRegister}
                     >
-                      <span>Create Account</span>
-                      <span className="flip-icon" aria-hidden="true">↻</span>
+                      <span>Create Account / Register</span>
+                      <span className="auth-switch-arrow" aria-hidden="true">→</span>
                     </button>
                   </div>
                 </div>
@@ -700,6 +740,32 @@ export default function Login() {
                         <span className="lock-dot" aria-hidden="true">🔒</span>
                         <span>Secure & Encrypted</span>
                       </span>
+                    </div>
+
+                    {/* Prominent Mode Toggle: Sign In vs Register */}
+                    <div className="auth-mode-toggle-group" role="tablist" aria-label="Authentication mode selection">
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={!isFlipped}
+                        className={`auth-mode-tab ${!isFlipped ? "active" : ""}`}
+                        onClick={flipToLogin}
+                        tabIndex={!isFlipped ? -1 : 0}
+                      >
+                        <span className="auth-tab-icon" aria-hidden="true">🔑</span>
+                        <span>Sign In</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={isFlipped && backMode === "register"}
+                        className={`auth-mode-tab ${isFlipped && backMode === "register" ? "active" : ""}`}
+                        onClick={flipToRegister}
+                        tabIndex={!isFlipped ? -1 : 0}
+                      >
+                        <span className="auth-tab-icon" aria-hidden="true">✨</span>
+                        <span>Register</span>
+                      </button>
                     </div>
 
                     <div className="auth-greeting-tag">
@@ -868,15 +934,18 @@ export default function Login() {
                   )}
 
                   <div className="auth-create-account-wrap">
+                    <span className="muted small">
+                      {backMode === "register" ? "Already have an account? " : "Remembered your credentials? "}
+                    </span>
                     <button
                       type="button"
-                      className="flip-toggle-btn"
+                      className="auth-switch-pill-btn"
                       disabled={!isFlipped}
                       tabIndex={!isFlipped ? -1 : 0}
                       onClick={flipToLogin}
                     >
-                      <span className="flip-icon" aria-hidden="true">←</span>
-                      <span>Back to Sign In</span>
+                      <span className="auth-switch-arrow" aria-hidden="true">←</span>
+                      <span>Return to Sign In</span>
                     </button>
                   </div>
                 </div>
