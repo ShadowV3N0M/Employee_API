@@ -11,6 +11,7 @@ import SalaryCalculator from "./pages/SalaryCalculator";
 import Holidays from "./pages/Holidays";
 import Profile from "./pages/Profile";
 import Reports from "./pages/Reports";
+import Attendance from "./pages/Attendance";
 import NotFound from "./pages/NotFound";
 import { NotificationProvider } from "./context/NotificationContext";
 import SessionTimeoutManager from "./components/SessionTimeoutManager";
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/salary-calculator" element={<SalaryCalculator />} />
         <Route path="/holidays" element={<Holidays />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/attendance" element={<Attendance />} />
         <Route path="/reports" element={<Reports />} />
         <Route
           path="/analytics"

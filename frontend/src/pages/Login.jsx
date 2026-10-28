@@ -385,17 +385,17 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Main Hero Graphic: Digital Network Core */}
+          {/* Main Hero Graphic: Digital Network Holographic Stage */}
           <div className="auth-hero-central-canvas" aria-hidden="true">
-            <div className="auth-digital-sphere">
-              <div className="sphere-ring ring-1" />
-              <div className="sphere-ring ring-2" />
-              <div className="sphere-ring ring-3" />
-              <div className="sphere-core" />
-              <div className="sphere-particle p-1" />
-              <div className="sphere-particle p-2" />
-              <div className="sphere-particle p-3" />
-              <div className="sphere-particle p-4" />
+            <div className="auth-stage-visual">
+              {/* Glowing 3D podium platform at base */}
+              <div className="auth-stage-platform" />
+              <div className="auth-stage-platform-inner" />
+
+              {/* Holographic Globe */}
+              <div className="auth-hologram-globe">
+                <HologramGlobe />
+              </div>
             </div>
 
             {/* Floating Status Glass Badge (Right side of canvas) */}
@@ -503,6 +503,11 @@ export default function Login() {
                       </span>
                     </div>
 
+                    <div className="auth-greeting-tag">{greeting}</div>
+                    <h2 className="auth-heading">Sign in to your workspace</h2>
+                    <p className="auth-subheading">Your attendance, leave and workday—all in one place.</p>
+                    <div className="auth-accent-bar" aria-hidden="true" />
+
                     {/* Prominent Mode Toggle: Sign In vs Register */}
                     <div className="auth-mode-toggle-group" role="tablist" aria-label="Authentication mode selection">
                       <button
@@ -528,11 +533,6 @@ export default function Login() {
                         <span>Register</span>
                       </button>
                     </div>
-
-                    <div className="auth-greeting-tag">{greeting}</div>
-                    <h2 className="auth-heading">Sign in to your workspace</h2>
-                    <p className="auth-subheading">Your attendance, leave and workday—all in one place.</p>
-                    <div className="auth-accent-bar" aria-hidden="true" />
                   </div>
 
                   {/* Prominent Session Timeout / Security Notification Banner */}
@@ -714,9 +714,9 @@ export default function Login() {
                   <div className="auth-status-indicator-line">
                     <span className="dot-pulse" aria-hidden="true" />
                     <span>System secure</span>
-                    <span className="sep">•</span>
+                    <span className="sep">|</span>
                     <span>Secure access</span>
-                    <span className="sep">•</span>
+                    <span className="sep">|</span>
                     <span>{currentDayLine || "Friday, Oct 23, 2026"}</span>
                   </div>
                   <p className="auth-legal-notice">
@@ -741,6 +741,19 @@ export default function Login() {
                         <span>Secure & Encrypted</span>
                       </span>
                     </div>
+
+                    <div className="auth-greeting-tag">
+                      {backMode === "register" ? "SELF SERVICE" : "ACCOUNT RECOVERY"}
+                    </div>
+                    <h2 className="auth-heading">
+                      {backMode === "register" ? "Create your account" : "Reset your password"}
+                    </h2>
+                    <p className="auth-subheading">
+                      {backMode === "register"
+                        ? "Register to access your employee portal, payslips, and attendance."
+                        : "Enter your username or email address and we'll send reset instructions."}
+                    </p>
+                    <div className="auth-accent-bar" aria-hidden="true" />
 
                     {/* Prominent Mode Toggle: Sign In vs Register */}
                     <div className="auth-mode-toggle-group" role="tablist" aria-label="Authentication mode selection">
@@ -767,19 +780,6 @@ export default function Login() {
                         <span>Register</span>
                       </button>
                     </div>
-
-                    <div className="auth-greeting-tag">
-                      {backMode === "register" ? "SELF SERVICE" : "ACCOUNT RECOVERY"}
-                    </div>
-                    <h2 className="auth-heading">
-                      {backMode === "register" ? "Create your account" : "Reset your password"}
-                    </h2>
-                    <p className="auth-subheading">
-                      {backMode === "register"
-                        ? "Register to access your employee portal, payslips, and attendance."
-                        : "Enter your username or email address and we'll send reset instructions."}
-                    </p>
-                    <div className="auth-accent-bar" aria-hidden="true" />
                   </div>
 
                   {backError && (
@@ -954,7 +954,7 @@ export default function Login() {
                   <div className="auth-status-indicator-line">
                     <span className="dot-pulse" aria-hidden="true" />
                     <span>System secure</span>
-                    <span className="sep">•</span>
+                    <span className="sep">|</span>
                     <span>256-bit SSL</span>
                   </div>
                 </div>
@@ -1089,6 +1089,55 @@ function PasswordToggleIcon({ visible }) {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function HologramGlobe() {
+  return (
+    <svg className="auth-globe-svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <radialGradient id="globeCoreGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#a855f7" stopOpacity="0.85" />
+          <stop offset="50%" stopColor="#6366f1" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="orbitGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#a855f7" stopOpacity="0.25" />
+        </linearGradient>
+        <linearGradient id="orbitGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#c084fc" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="#6366f1" stopOpacity="0.3" />
+        </linearGradient>
+      </defs>
+
+      {/* Radiant inner core glow */}
+      <circle cx="100" cy="100" r="50" fill="url(#globeCoreGlow)" />
+
+      {/* Main globe boundary */}
+      <circle cx="100" cy="100" r="54" stroke="rgba(168, 85, 247, 0.55)" strokeWidth="1.5" />
+
+      {/* Equator & Latitude lines */}
+      <ellipse cx="100" cy="100" rx="54" ry="18" stroke="rgba(56, 189, 248, 0.5)" strokeWidth="1.2" strokeDasharray="3 3" />
+      <ellipse cx="100" cy="80" rx="46" ry="14" stroke="rgba(192, 132, 252, 0.4)" strokeWidth="1" strokeDasharray="2 3" />
+      <ellipse cx="100" cy="120" rx="46" ry="14" stroke="rgba(192, 132, 252, 0.4)" strokeWidth="1" strokeDasharray="2 3" />
+
+      {/* Longitude lines */}
+      <ellipse cx="100" cy="100" rx="20" ry="54" stroke="rgba(168, 85, 247, 0.5)" strokeWidth="1.2" />
+      <ellipse cx="100" cy="100" rx="38" ry="54" stroke="rgba(56, 189, 248, 0.45)" strokeWidth="1.2" />
+      <line x1="100" y1="46" x2="100" y2="154" stroke="rgba(255, 255, 255, 0.5)" strokeWidth="1.2" />
+
+      {/* Outer tilted orbital satellite rings */}
+      <ellipse cx="100" cy="100" rx="78" ry="30" stroke="url(#orbitGrad1)" strokeWidth="1.6" transform="rotate(-25 100 100)" />
+      <ellipse cx="100" cy="100" rx="86" ry="24" stroke="url(#orbitGrad2)" strokeWidth="1.3" strokeDasharray="4 4" transform="rotate(20 100 100)" />
+
+      {/* Glowing data nodes / orbital points */}
+      <circle cx="162" cy="72" r="3.5" fill="#38bdf8" />
+      <circle cx="38" cy="126" r="3" fill="#c084fc" />
+      <circle cx="100" cy="46" r="3" fill="#ffffff" />
+      <circle cx="128" cy="112" r="2.5" fill="#34d399" />
+      <circle cx="72" cy="88" r="2.5" fill="#818cf8" />
     </svg>
   );
 }

@@ -25,6 +25,23 @@ from app.schemas.auth import (
     ForgotPasswordRequest,
     ResetPasswordConfirm,
 )
+from app.schemas.attendance import (
+    ClockInRequest,
+    ClockOutRequest,
+    BreakStartRequest,
+    BreakEndRequest,
+    AttendanceBreakOut,
+    AttendanceOut,
+    AttendanceTodayStatus,
+    AttendanceSummaryKPIs,
+    AttendanceMonthlyReport,
+    AttendanceRegularizeCreate,
+    AttendanceRegularizeReview,
+    AttendanceRegularizeOut,
+    TeamLiveMember,
+    TeamLiveRoster,
+    AttendanceManualEntry,
+)
 
 __all__ = [
     "DepartmentCreate",
@@ -47,4 +64,19 @@ __all__ = [
     "Token",
     "ForgotPasswordRequest",
     "ResetPasswordConfirm",
+    "ClockInRequest",
+    "ClockOutRequest",
+    "BreakStartRequest",
+    "BreakEndRequest",
+    "AttendanceBreakOut",
+    "AttendanceOut",
+    "AttendanceTodayStatus",
+    "AttendanceSummaryKPIs",
+    "AttendanceMonthlyReport",
+    "AttendanceRegularizeCreate",
+    "AttendanceRegularizeReview",
+    "AttendanceRegularizeOut",
+    "TeamLiveMember",
+    "TeamLiveRoster",
+    "AttendanceManualEntry",
 ]

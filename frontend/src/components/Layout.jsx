@@ -175,6 +175,15 @@ export default function Layout() {
           </NavLink>
 
           <NavLink
+            to="/attendance"
+            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            title="Employee Attendance & Time Tracking"
+          >
+            <span className="sidebar-link-icon">⏱️</span>
+            <span className="sidebar-link-label">Attendance</span>
+          </NavLink>
+
+          <NavLink
             to="/reports"
             className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
             title="Official Reports & PDF Generator"
@@ -277,6 +286,15 @@ export default function Layout() {
                       >
                         <span className="user-dropdown-item-icon">👤</span>
                         <span>My Profile & SOS</span>
+                      </NavLink>
+
+                      <NavLink
+                        to="/attendance"
+                        className="user-dropdown-item"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <span className="user-dropdown-item-icon">⏱️</span>
+                        <span>Attendance & Punch</span>
                       </NavLink>
 
                       <NavLink

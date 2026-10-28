@@ -6,6 +6,7 @@ from app.models.user import UserDB, PasswordResetTokenDB
 from app.models.holiday import HolidayDB, AnnouncementDB
 from app.models.notification import NotificationDB
 from app.models.system_setting import SystemSettingDB
+from app.models.attendance import AttendanceDB, AttendanceBreakDB, AttendanceRegularizationDB
 
 __all__ = [
     "Base",
@@ -20,4 +21,7 @@ __all__ = [
     "AnnouncementDB",
     "NotificationDB",
     "SystemSettingDB",
+    "AttendanceDB",
+    "AttendanceBreakDB",
+    "AttendanceRegularizationDB",
 ]

@@ -39,6 +39,9 @@ from app.models import (
     PasswordResetTokenDB,
     SalaryHistoryDB,
     UserDB,
+    AttendanceDB,
+    AttendanceBreakDB,
+    AttendanceRegularizationDB,
 )
 
 # Authentication & Security

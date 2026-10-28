@@ -40,6 +40,18 @@ class EmployeeDB(Base):
         cascade="all, delete-orphan",
         order_by="desc(EmergencyContactDB.is_primary), EmergencyContactDB.id.asc()",
     )
+    attendance_records = relationship(
+        "AttendanceDB",
+        back_populates="employee",
+        cascade="all, delete-orphan",
+        order_by="AttendanceDB.attendance_date.desc()",
+    )
+    regularization_requests = relationship(
+        "AttendanceRegularizationDB",
+        back_populates="employee",
+        cascade="all, delete-orphan",
+        order_by="AttendanceRegularizationDB.created_at.desc()",
+    )
 
 
 class SalaryHistoryDB(Base):

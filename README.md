@@ -175,6 +175,23 @@ The API enforces strict Role-Based Access Control across three user roles: **`us
 | `PUT` | `/auth/users/{username}/role` | ❌ | ❌ | ❌ | ✅ | Promote or demote user role (`user`, `manager`, `admin`) |
 | `PUT` | `/auth/users/{username}/status` | ❌ | ❌ | ❌ | ✅ | Activate or deactivate a user account |
 | `DELETE` | `/auth/users/{username}` | ❌ | ❌ | ❌ | ✅ | Delete user account (cannot delete own account) |
+| `POST` | `/attendance/clock-in` | ❌ | ✅ | ✅ | ✅ | Punch clock-in with work mode (office/remote) & optional notes |
+| `POST` | `/attendance/clock-out` | ❌ | ✅ | ✅ | ✅ | Punch clock-out, auto-end breaks & finalize work hours |
+| `POST` | `/attendance/break/start` | ❌ | ✅ | ✅ | ✅ | Start active break (lunch, tea, personal) |
+| `POST` | `/attendance/break/end` | ❌ | ✅ | ✅ | ✅ | End active break & resume productive work |
+| `GET` | `/attendance/today` | ❌ | ✅ | ✅ | ✅ | Real-time live attendance status & active duration timer |
+| `GET` | `/attendance/my-history` | ❌ | ✅ | ✅ | ✅ | Personal attendance history with date & status filters |
+| `GET` | `/attendance/my-summary` | ❌ | ✅ | ✅ | ✅ | Monthly attendance KPIs, on-time rate & overtime hours |
+| `POST` | `/attendance/regularize` | ❌ | ✅ | ✅ | ✅ | Submit missed punch / attendance correction request |
+| `GET` | `/attendance/regularize/my-requests` | ❌ | ✅ | ✅ | ✅ | View status of own regularization requests |
+| `GET` | `/attendance/team-live` | ❌ | ❌ | ✅ | ✅ | Real-time team presence ticker & active shift roster |
+| `GET` | `/attendance/roster` | ❌ | ❌ | ✅ | ✅ | Company-wide filterable & paginated attendance roster |
+| `GET` | `/attendance/regularize/pending` | ❌ | ❌ | ✅ | ✅ | List pending regularization requests for review |
+| `POST` | `/attendance/regularize/{req_id}/review` | ❌ | ❌ | ✅ | ✅ | Approve or reject attendance regularization request |
+| `POST` | `/attendance/manual` | ❌ | ❌ | ❌ | ✅ | Admin manual attendance override or record insertion |
+| `DELETE`| `/attendance/{attendance_id}` | ❌ | ❌ | ❌ | ✅ | Admin delete attendance record |
+| `GET` | `/attendance/export/csv` | ❌ | ✅* | ✅ | ✅ | Export attendance records to CSV (*scoped by role) |
+| `GET` | `/attendance/export/pdf` | ❌ | ✅* | ✅ | ✅ | Export formal corporate attendance & timesheet PDF report |
 
 
 

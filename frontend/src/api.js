@@ -55,7 +55,10 @@ function errorMessage(data, fallback) {
   if (typeof data.detail === "string") return data.detail;
   if (Array.isArray(data.detail)) {
     return data.detail
-      .map((d) => `${(d.loc || []).slice(1).join(".")}: ${d.msg}`)
+      .map((d) => {
+        const field = (d.loc || []).slice(1).join(".");
+        return field ? `${field}: ${d.msg}` : d.msg;
+      })
       .join("; ");
   }
   if (typeof data.error === "string") return data.error;
@@ -499,6 +502,117 @@ export const api = {
 
   getMySalaryRevisionPdfUrl: ({ inline = true } = {}) => {
     return `/reports/my-salary-revision/pdf?inline=${String(inline)}`;
+  },
+
+  // =========================================================================
+  // Employee Attendance & Time-Tracking Module
+  // =========================================================================
+  clockIn: (workMode = "office", notes = null) =>
+    request("/attendance/clock-in", {
+      method: "POST",
+      body: { work_mode: workMode, notes },
+    }),
+
+  clockOut: (notes = null) =>
+    request("/attendance/clock-out", {
+      method: "POST",
+      body: { notes },
+    }),
+
+  startBreak: (breakType = "lunch", notes = null) =>
+    request("/attendance/break/start", {
+      method: "POST",
+      body: { break_type: breakType, notes },
+    }),
+
+  endBreak: (notes = null) =>
+    request("/attendance/break/end", {
+      method: "POST",
+      body: { notes },
+    }),
+
+  getAttendanceToday: () => request("/attendance/today"),
+
+  getMyAttendanceHistory: ({ fromDate, toDate, status } = {}) => {
+    const params = new URLSearchParams();
+    if (fromDate) params.set("from_date", fromDate);
+    if (toDate) params.set("to_date", toDate);
+    if (status && status !== "all") params.set("status", status);
+    const qs = params.toString();
+    return request(`/attendance/my-history${qs ? `?${qs}` : ""}`);
+  },
+
+  getMyAttendanceSummary: ({ month, year } = {}) => {
+    const params = new URLSearchParams();
+    if (month) params.set("month", month);
+    if (year) params.set("year", year);
+    const qs = params.toString();
+    return request(`/attendance/my-summary${qs ? `?${qs}` : ""}`);
+  },
+
+  submitAttendanceRegularization: (data) =>
+    request("/attendance/regularize", {
+      method: "POST",
+      body: data,
+    }),
+
+  getMyRegularizationRequests: () => request("/attendance/regularize/my-requests"),
+
+  getTeamLiveAttendance: ({ deptId, status } = {}) => {
+    const params = new URLSearchParams();
+    if (deptId) params.set("dept_id", deptId);
+    if (status && status !== "all") params.set("status", status);
+    const qs = params.toString();
+    return request(`/attendance/team-live${qs ? `?${qs}` : ""}`);
+  },
+
+  getAttendanceRoster: ({ page = 1, limit = 25, deptId, status, fromDate, toDate, search } = {}) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (deptId) params.set("dept_id", deptId);
+    if (status && status !== "all") params.set("status", status);
+    if (fromDate) params.set("from_date", fromDate);
+    if (toDate) params.set("to_date", toDate);
+    if (search) params.set("search", search);
+    return request(`/attendance/roster?${params.toString()}`);
+  },
+
+  getPendingRegularizations: () => request("/attendance/regularize/pending"),
+
+  reviewRegularization: (reqId, status, reviewNotes = null) =>
+    request(`/attendance/regularize/${reqId}/review`, {
+      method: "POST",
+      body: { status, review_notes: reviewNotes },
+    }),
+
+  createManualAttendance: (data) =>
+    request("/attendance/manual", {
+      method: "POST",
+      body: data,
+    }),
+
+  deleteAttendance: (attendanceId) =>
+    request(`/attendance/${attendanceId}`, {
+      method: "DELETE",
+    }),
+
+  getAttendanceCsvUrl: ({ empId, deptId, status, fromDate, toDate } = {}) => {
+    const params = new URLSearchParams();
+    if (empId) params.set("emp_id", empId);
+    if (deptId) params.set("dept_id", deptId);
+    if (status && status !== "all") params.set("status", status);
+    if (fromDate) params.set("from_date", fromDate);
+    if (toDate) params.set("to_date", toDate);
+    const qs = params.toString();
+    return `${BASE_URL}/attendance/export/csv${qs ? `?${qs}` : ""}`;
+  },
+
+  getAttendancePdfUrl: ({ empId, month, year, inline = true } = {}) => {
+    const params = new URLSearchParams();
+    if (empId) params.set("emp_id", empId);
+    if (month) params.set("month", month);
+    if (year) params.set("year", year);
+    params.set("inline", String(inline));
+    return `${BASE_URL}/attendance/export/pdf?${params.toString()}`;
   },
 };
 
