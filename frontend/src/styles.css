@@ -4577,7 +4577,7 @@ td.center {
   border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--muted, #94a3b8);
+  color: var(--muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4588,10 +4588,10 @@ td.center {
 
 .action-ellipsis-btn:hover,
 .action-ellipsis-btn.active {
-  background: var(--surface-alt, #1e293b);
-  border-color: var(--border, #334155);
-  color: var(--primary, #6366f1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: var(--surface-alt);
+  border-color: var(--border);
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   transform: scale(1.05);
 }
 
@@ -4599,19 +4599,24 @@ td.center {
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  min-width: 195px;
-  background: var(--card-bg, #0f172a);
-  border: 1px solid var(--border-color, #334155);
+  min-width: 205px;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
   border-radius: 12px;
-  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.55), 0 6px 14px -2px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.15), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
   padding: 6px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  backdrop-filter: blur(12px);
   animation: action-dropdown-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   text-align: left;
+}
+
+[data-theme="dark"] .action-menu-dropdown {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.55), 0 6px 14px -2px rgba(0, 0, 0, 0.3);
 }
 
 .action-menu-dropdown.dropup {
@@ -4643,35 +4648,39 @@ td.center {
 }
 
 .action-menu-header {
-  padding: 7px 10px 4px 10px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  background: var(--surface-alt);
+  border-radius: 8px;
+  margin-bottom: 2px;
 }
 
 .action-menu-name {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  color: var(--text, #f8fafc);
+  color: var(--text-heading) !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 125px;
 }
 
 .action-menu-id {
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--muted, #94a3b8);
-  background: var(--surface-alt, #1e293b);
+  color: var(--muted) !important;
+  background: var(--surface);
+  border: 1px solid var(--border);
   padding: 2px 6px;
   border-radius: 4px;
 }
 
 .action-menu-divider {
   height: 1px;
-  background: var(--border, #334155);
+  background: var(--border);
   margin: 4px 0;
 }
 
@@ -4679,11 +4688,11 @@ td.center {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-radius: 8px;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 500;
-  color: var(--text, #f1f5f9);
+  color: var(--text) !important;
   background: transparent;
   border: none;
   width: 100%;
@@ -4693,38 +4702,41 @@ td.center {
 }
 
 .action-menu-item:hover {
-  background: var(--surface-alt, #1e293b);
-  color: var(--primary, #6366f1);
+  background: var(--surface-alt) !important;
+  color: var(--primary) !important;
 }
 
 .action-menu-item.danger {
-  color: #ef4444;
+  color: var(--danger-text, #d6336c) !important;
 }
 
 .action-menu-item.danger:hover {
-  background: rgba(239, 68, 68, 0.14);
-  color: #f87171;
+  background: var(--danger-bg, #fff0f3) !important;
+  color: var(--danger, #a61e4d) !important;
 }
 
 .action-menu-item.restore {
-  color: #10b981;
+  color: var(--ok-text, #22692f) !important;
 }
 
 .action-menu-item.restore:hover {
-  background: rgba(16, 185, 129, 0.14);
-  color: #34d399;
+  background: var(--ok-bg, #ebfbee) !important;
+  color: var(--ok, #2b8a3e) !important;
 }
 
 .action-menu-icon {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: inherit;
 }
 
 tr.row-menu-active {
-  background: var(--row-hover-active, rgba(99, 102, 241, 0.08)) !important;
+  background: var(--row-hover-active) !important;
 }
 
 /* =========================================================================
