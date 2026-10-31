@@ -8,6 +8,7 @@ import ExcelImportModal from "../components/ExcelImportModal";
 import HistoryModal from "../components/HistoryModal";
 import SalaryModal from "../components/SalaryModal";
 import SortByDropdown from "../components/SortByDropdown";
+import EmployeeActionMenu from "../components/EmployeeActionMenu";
 
 const PAGE_SIZE = 10;
 
@@ -36,6 +37,7 @@ export default function Employees() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [modal, setModal] = useState(null); // { type: "detail" | "form" | "salary" | "history" | "excel", employee }
+  const [activeMenuId, setActiveMenuId] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   const reload = () => setReloadKey((k) => k + 1);
@@ -143,6 +145,19 @@ export default function Employees() {
     setNotice(message);
     reload();
   }
+
+  const handleDownloadPayslip = async (emp) => {
+    try {
+      const url = api.getPayslipPdfUrl(emp.Emp_ID, { inline: false });
+      await api.downloadPdf(
+        url,
+        `Payslip_${emp.Emp_ID}_${emp.F_Name}_${emp.L_Name}.pdf`
+      );
+      setNotice(`Payslip voucher for ${emp.F_Name} ${emp.L_Name} downloaded successfully.`);
+    } catch (err) {
+      setError(err.message || "Failed to download payslip PDF.");
+    }
+  };
 
   // Active filter count and reset
   const activeFilterCount = useMemo(() => {
@@ -493,31 +508,37 @@ export default function Employees() {
       )}
 
       <div className="card table-wrap">
-        <table>
+        <table className="employee-table">
           <thead>
             <tr>
-              <th className="sortable sortable-th" onClick={() => toggleSort("Emp_ID")}>
+              <th className="sortable sortable-th th-col-id" onClick={() => toggleSort("Emp_ID")}>
                 <div className="th-content">ID{arrow("Emp_ID")}</div>
               </th>
-              <th className="sortable sortable-th" onClick={() => toggleSort("F_Name")}>
+              <th className="sortable sortable-th th-col-name" onClick={() => toggleSort("F_Name")}>
                 <div className="th-content">Name{arrow("F_Name")}</div>
               </th>
-              <th className="sortable sortable-th" onClick={() => toggleSort("Email")}>
+              <th className="sortable sortable-th th-col-email" onClick={() => toggleSort("Email")}>
                 <div className="th-content">Email{arrow("Email")}</div>
               </th>
-              <th className="sortable sortable-th" onClick={() => toggleSort("Dept_ID")}>
+              <th className="sortable sortable-th th-col-dept" onClick={() => toggleSort("Dept_ID")}>
                 <div className="th-content">Department{arrow("Dept_ID")}</div>
               </th>
               {privileged && (
-                <th className="sortable sortable-th num" onClick={() => toggleSort("Salary")}>
-                  <div className="th-content" style={{ justifyContent: "flex-end" }}>Salary{arrow("Salary")}</div>
+                <th className="sortable sortable-th num th-col-salary" onClick={() => toggleSort("Salary")}>
+                  <div className="th-content th-content-right">Salary{arrow("Salary")}</div>
                 </th>
               )}
-              {privileged && <th>Address</th>}
-              <th className="sortable sortable-th" onClick={() => toggleSort("is_active")}>
-                <div className="th-content">Status{arrow("is_active")}</div>
+              {privileged && (
+                <th className="th-col-address">
+                  <div className="th-content">Address</div>
+                </th>
+              )}
+              <th className="sortable sortable-th center th-col-status" onClick={() => toggleSort("is_active")}>
+                <div className="th-content th-content-center">Status{arrow("is_active")}</div>
               </th>
-              <th className="right">Actions</th>
+              <th className="center th-col-actions">
+                <div className="th-content th-content-center">Actions</div>
+              </th>
             </tr>
           </thead>
 
@@ -541,49 +562,45 @@ export default function Employees() {
               </tr>
             )}
 
-            {data.items.map((emp) => (
-              <tr
-                key={emp.Emp_ID}
-                className={`clickable-row ${emp.is_active ? "" : "inactive"}`}
-                onClick={() => setModal({ type: "detail", employee: emp })}
-                title="Click to view full employee profile"
-              >
-                <td>{emp.Emp_ID}</td>
-                <td><strong>{emp.F_Name} {emp.L_Name}</strong></td>
-                <td>{emp.Email || "—"}</td>
-                <td>{deptName[emp.Dept_ID] ?? `#${emp.Dept_ID}`}</td>
-                {privileged && <td className="num">{formatMoney(emp.Salary)}</td>}
-                {privileged && <td className="truncate" title={emp.Address}>{emp.Address}</td>}
-                <td>
-                  <span className={`badge ${emp.is_active ? "ok" : "off"}`}>
-                    {emp.is_active ? "Active" : "Inactive"}
-                  </span>
-                </td>
-                <td className="right nowrap" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="btn small ghost"
-                    onClick={() => setModal({ type: "detail", employee: emp })}
-                    title="View details"
-                  >
-                    View
-                  </button>
-                  {privileged && (
-                    <>
-                      <button className="btn small ghost" onClick={() => setModal({ type: "form", employee: emp })}>Edit</button>
-                      <button className="btn small ghost" onClick={() => setModal({ type: "history", employee: emp })}>History</button>
-                      {isAdmin && (
-                        <>
-                          <button className="btn small ghost" onClick={() => setModal({ type: "salary", employee: emp })}>Salary</button>
-                          <button className="btn small danger" onClick={() => toggleActive(emp)}>
-                            {emp.is_active ? "Deactivate" : "Restore"}
-                          </button>
-                        </>
-                      )}
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {data.items.map((emp, index) => {
+              const isDropup = index >= Math.max(0, data.items.length - 3);
+              return (
+                <tr
+                  key={emp.Emp_ID}
+                  className={`clickable-row ${emp.is_active ? "" : "inactive"} ${activeMenuId === emp.Emp_ID ? "row-menu-active" : ""}`}
+                  onClick={() => setModal({ type: "detail", employee: emp })}
+                  title="Click to view full employee profile"
+                >
+                  <td className="td-col-id">{emp.Emp_ID}</td>
+                  <td className="td-col-name"><strong>{emp.F_Name} {emp.L_Name}</strong></td>
+                  <td className="td-col-email" title={emp.Email || ""}>{emp.Email || "—"}</td>
+                  <td className="td-col-dept">{deptName[emp.Dept_ID] ?? `#${emp.Dept_ID}`}</td>
+                  {privileged && <td className="num td-col-salary">{formatMoney(emp.Salary)}</td>}
+                  {privileged && <td className="truncate td-col-address" title={emp.Address}>{emp.Address}</td>}
+                  <td className="center td-col-status">
+                    <span className={`badge ${emp.is_active ? "ok" : "off"}`}>
+                      {emp.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td className="center td-col-actions" onClick={(e) => e.stopPropagation()}>
+                    <EmployeeActionMenu
+                      employee={emp}
+                      role={user?.role}
+                      isOpen={activeMenuId === emp.Emp_ID}
+                      onToggle={() => setActiveMenuId((prev) => (prev === emp.Emp_ID ? null : emp.Emp_ID))}
+                      onClose={() => setActiveMenuId(null)}
+                      onView={(target) => setModal({ type: "detail", employee: target })}
+                      onEdit={(target) => setModal({ type: "form", employee: target })}
+                      onHistory={(target) => setModal({ type: "history", employee: target })}
+                      onSalary={(target) => setModal({ type: "salary", employee: target })}
+                      onToggleActive={toggleActive}
+                      onDownloadPayslip={handleDownloadPayslip}
+                      isDropup={isDropup}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
