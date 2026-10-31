@@ -13,7 +13,7 @@ from app.config import (
     HSTS_PRELOAD,
     limiter,
 )
-from app.database import Base, auto_migrate_schema, engine
+from app.database import Base, auto_migrate_schema, engine, seed_defaults_if_empty
 import app.models  # noqa: F401
 from app.routers import (
     auth_router,
@@ -121,6 +121,7 @@ def create_app() -> FastAPI:
     def on_startup():
         Base.metadata.create_all(bind=engine)
         auto_migrate_schema()
+        seed_defaults_if_empty()
 
     return app
 

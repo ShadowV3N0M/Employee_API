@@ -233,3 +233,4 @@ export default function PWAInstallPrompt({ variant = "banner" }) {
     </div>
   );
 }
+

@@ -182,7 +182,11 @@ export default function Login() {
       await signIn(access_token);
       navigate("/", { replace: true });
     } catch (err) {
-      setLoginError(err.message || "Failed to sign in. Please verify your credentials.");
+      if (err.message && err.message.includes("Cannot reach")) {
+        setLoginError("Cannot reach the backend server on port 8000. Please start the backend API via start.bat or start_backend.bat.");
+      } else {
+        setLoginError(err.message || "Failed to sign in. Please verify your credentials.");
+      }
     } finally {
       setLoginBusy(false);
     }
@@ -293,7 +297,11 @@ export default function Login() {
         await signIn(access_token);
         navigate("/", { replace: true });
       } catch (err) {
-        setBackError(err.message || "Registration failed.");
+        if (err.message && err.message.includes("Cannot reach")) {
+          setBackError("Cannot reach the backend server on port 8000. Please start the backend API via start.bat or start_backend.bat.");
+        } else {
+          setBackError(err.message || "Registration failed.");
+        }
       } finally {
         setBackBusy(false);
       }
