@@ -214,6 +214,13 @@ Basic employee directory view. Privacy-sensitive data (salary, home address) is 
 - `GET /departments` - View all company departments
 - `GET /employees` - Browse employee directory (Name, Email, Department only; `Salary` and `Address` are excluded)
 - `GET /employees/{emp_id}` - View individual employee profile (directory info only)
+- `POST /attendance/clock-in` - Clock in with work mode (`office`, `remote`, `hybrid`)
+- `POST /attendance/clock-out` - Clock out and compute net shift duration
+- `POST /attendance/break/start` & `POST /attendance/break/end` - Track shift breaks (lunch, tea, personal)
+- `GET /attendance/today` - View active workday punch status and live timer
+- `GET /attendance/my-history` & `GET /attendance/my-summary` - View personal timesheet logs and KPI summary
+- `POST /attendance/regularize` & `GET /attendance/regularize/my-requests` - Submit and track missed punch regularizations
+- `GET /attendance/export/csv` & `GET /attendance/export/pdf` - Export personal timesheet statement
 
 > [!NOTE]
 > For `user` accounts, all modification routes (`POST`, `PUT`, `PATCH`, `DELETE`) return **HTTP 403 Forbidden**. Sorting by `Salary` or requesting `include_inactive=true` on `/employees` is also rejected with 403 to prevent inferring pay levels.
@@ -227,6 +234,10 @@ Operational access for department managers to view compensation and manage staff
 - `PUT /employees/{emp_id}` - Update employee personal/department details (cannot change salary)
 - `PATCH /employees/{emp_id}` - Partially update employee details (cannot change salary)
 - `GET /employees/{emp_id}/salary-history` - View complete salary revision logs
+- `GET /attendance/team-live` - Real-time team presence ticker and active shift status
+- `GET /attendance/roster` - Company-wide filterable attendance roster
+- `GET /attendance/regularize/pending` - List team attendance regularization requests
+- `POST /attendance/regularize/{req_id}/review` - Approve or reject employee regularizations
 
 > [!NOTE]
 > Managers cannot delete/deactivate staff, cannot change existing salaries, cannot create departments, and cannot manage user roles. Any such attempt returns **HTTP 403 Forbidden**.
@@ -243,6 +254,9 @@ Full administrative and superuser privileges across the system:
 - `PUT /employees/{emp_id}` & `PATCH /employees/{emp_id}` - May modify any field, including salary
 - `GET /auth/users` - View all user accounts, active status, and current roles
 - `PUT /auth/users/{username}/role` - Promote or demote users between `user`, `manager`, and `admin`
+- `POST /attendance/manual` - Privileged manual attendance punch creation or override
+- `DELETE /attendance/{attendance_id}` - Delete attendance logs
+- `PUT /auth/session-config` - Manage global inactivity timeout and auto-logout policy
 
 ## Auto-generated employee emails
 
@@ -441,8 +455,12 @@ sensitive data would typically use short-lived tokens with httpOnly cookies.
 pytest -v
 ```
 
-Tests run against a local SQLite file (`test.db`), so they don't touch
-your real MySQL database or require it to be running.
+Tests run against isolated local SQLite files (`test.db` and `test_reports.db`), so they don't touch your real MySQL database or require it to be running.
+
+The test suite consists of **56 integration tests** running with a 100% pass rate:
+- `tests/test_attendance.py`: 10 tests covering clock-in/out, shift breaks, regularization workflows, manual punch adjustments, rosters, and CSV/PDF timesheet exports.
+- `tests/test_main.py`: 39 tests covering authentication, RBAC, employee CRUD, auto-shift collision prevention, consecutive gap-closing resequencing, and session configuration.
+- `tests/test_reports.py`: 7 tests covering ReportLab PDF generators, payslips, headcount statements, revision letters, and access guards.
 
 ## Docker
 
@@ -592,14 +610,22 @@ git reset --soft HEAD~1
 │   ├── database.py                  # SQLAlchemy engine, SessionLocal, Base, get_db
 │   ├── models/                      # SQLAlchemy ORM models
 │   │   ├── __init__.py
-│   │   ├── department.py            # DepartmentDB
-│   │   ├── employee.py              # EmployeeDB, SalaryHistoryDB
+│   │   ├── attendance.py            # AttendanceDB, AttendanceBreakDB, AttendanceRegularizationDB
+│   │   ├── department.py            # DepartmentDB, DepartmentHistoryDB
+│   │   ├── employee.py              # EmployeeDB, SalaryHistoryDB, EmergencyContactDB
+│   │   ├── holiday.py               # HolidayDB, AnnouncementDB
+│   │   ├── notification.py          # NotificationDB
+│   │   ├── system_setting.py        # SystemSettingDB (session timeout policy)
 │   │   └── user.py                  # UserDB, PasswordResetTokenDB
 │   ├── schemas/                     # Pydantic schemas (request/response)
 │   │   ├── __init__.py
-│   │   ├── auth.py                  # UserRegister, RoleUpdate, Token, PasswordReset
+│   │   ├── attendance.py            # AttendanceIn/Out, BreakIn/Out, Regularization schemas
+│   │   ├── auth.py                  # UserRegister, RoleUpdate, Token, PasswordReset, SessionConfig
 │   │   ├── department.py            # DepartmentCreate, DepartmentResponse
-│   │   └── employee.py              # Employee, EmployeeUpdate, SalarySet/Increment
+│   │   ├── employee.py              # Employee, EmployeeUpdate, SalarySet/Increment
+│   │   ├── holiday.py               # HolidayBase, AnnouncementBase
+│   │   ├── notification.py          # NotificationOut
+│   │   └── profile.py               # ProfileOut, EmergencyContactOut
 │   ├── auth/                        # Security & authorization
 │   │   ├── __init__.py
 │   │   ├── security.py              # Password hashing & JWT token issuance
@@ -608,29 +634,38 @@ git reset --soft HEAD~1
 │   │   ├── __init__.py
 │   │   ├── email_service.py         # Joining-date email generation & SMTP reset emails
 │   │   ├── employee_service.py      # Field masking views & sorting helpers
-│   │   └── excel_service.py         # Excel (.xlsx) & CSV parser and batch importer
+│   │   ├── excel_service.py         # Excel (.xlsx) & CSV parser and batch importer
+│   │   ├── notification_service.py  # WebSocket connection manager & push dispatcher
+│   │   └── pdf_service.py           # ReportLab Indian payslips, revision letters, headcount rosters
 │   └── routers/                     # Endpoint controllers
 │       ├── __init__.py
-│       ├── health.py                # GET /health
-│       ├── auth.py                  # /auth/* (login, register, reset, user management)
+│       ├── analytics.py             # Headcount metrics, department budget summaries
+│       ├── attendance.py            # Clock in/out, break tracking, regularization, team roster, CSV/PDF
+│       ├── auth.py                  # /auth/* (login, register, reset, user management, session config)
 │       ├── departments.py           # /departments/*
 │       ├── employees.py             # /employees/* (CRUD, activate, restore, excel upload)
+│       ├── health.py                # GET /health
+│       ├── holidays.py              # /holidays/*, announcements, business days simulator
+│       ├── notifications.py         # /notifications/* & WebSocket /ws/{user_id}
+│       ├── profile.py               # /employees/me/profile & emergency contacts
+│       ├── reports.py               # /reports/* (PDF binary document streams)
 │       └── salaries.py              # /employees/{id}/salary* & salary-history
 ├── main.py                          # Root ASGI entrypoint (uvicorn main:app)
 ├── EMP_main.py                      # Backward-compatible facade (re-exports app.*)
 ├── setup_frontend.bat               # Automated frontend setup, cleanup & launcher
 ├── import_excel.py                  # CLI batch employee spreadsheet importer
 ├── seed_data.py                     # Safe database seeder & reset script
-
 ├── backfill_emails.py               # One-time script to fill in Email for old rows
 ├── test_hashing.py                  # Standalone bcrypt sanity check (no DB)
 ├── alembic/                         # Database migration configuration & versions
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
-├── tests/
-│   └── test_main.py                 # Backend test suite (pytest against SQLite)
-└── frontend/                        # React + Vite client
+├── tests/                           # 56 automated integration tests (100% passing)
+│   ├── test_attendance.py           # Attendance, breaks, regularizations, rosters, CSV/PDF
+│   ├── test_main.py                 # Core integration suite (Auth, RBAC, CRUD, Auto-shift)
+│   └── test_reports.py              # ReportLab document generation suite
+└── frontend/                        # React 19 + Vite client (Mirrored from employee_frontend)
     ├── package.json
     ├── vite.config.js
     ├── index.html
@@ -993,6 +1028,39 @@ git reset --soft HEAD~1
   - Preset options in `SessionTimeoutModal.jsx`: 1, 2, 5, 10, 15, 30, 45, 60, 120 minutes.
   - Token refresh endpoint `POST /auth/refresh-session`.
 
+### 28. Universal Smartphone & Cross-Platform Screen Compatibility
+- **Universal Mobile Device Support:** Optimized layout verified across every smartphone screen size and aspect ratio (Android & iOS devices, iPhone SE, iPhone 15/16 Pro Max, Samsung Galaxy, Pixel, foldables, and tablets).
+- **Dynamic Viewport Height (`100dvh`):** Dynamic viewport sizing adapts seamlessly to collapsing/expanding browser navigation address bars without jumpy reflows.
+- **Safe Area Insets Clearance:** Integrates CSS hardware variables (`--sat`, `--sab`, `--sal`, `--sar`) mapping to `env(safe-area-inset-top, 0px)` for hardware notch, pill cutout, and home gesture bar clearance.
+- **Anti-Clipping Centering & Scrolling:** Uses `margin: auto auto` within `.auth-flip-container` and `overflow-y: auto` on `.auth-card-stage`, guaranteeing that submit actions, SSO buttons, and security indicator footers are never clipped or occluded on small viewports.
+
+### 29. Employee Attendance & Time-Tracking Module
+- **Live Daily Punch Terminal (`Attendance.jsx`):**
+  - Real-time digital clock display (`HH:MM:SS`) with live seconds counter.
+  - Interactive radio selector for work mode (`Office`, `Remote / WFH`, `Hybrid`).
+  - Active workday shift timer (`00h 00m 00s`) dynamically tracking elapsed working duration.
+  - Context-aware action buttons: `Clock In Now`, `Start Break`, `End Break`, `Clock Out`.
+  - Shift punctuality analysis: Automatic on-time vs. late arrival computation (`is_late`, `late_minutes`, `is_half_day`).
+- **Intermittent Shift Breaks Tracker:**
+  - Pause active shift with labeled break categories (`Lunch`, `Tea / Coffee`, `Personal`, `Meeting`).
+  - Automatic deduction of cumulative break minutes from gross shift hours to calculate net productive working hours.
+- **Attendance Regularization Workflow:**
+  - Self-service submission for missed punches, biometric failures, or outdoor duty (`POST /attendance/regularize`).
+  - Manager & Admin approval workflow (`PUT /attendance/regularize/{id}`) with approval/rejection notes and audit trails.
+- **Manual Attendance Overrides:**
+  - Privileged manual punch adjustments and retro-active record insertion (`POST /attendance/manual`) with mandatory justification audit notes.
+- **Team Live Presence Ticker & Company Attendance Roster:**
+  - Real-time presence reporting (`GET /attendance/team-live`): instantly inspect who is clocked in, on break, or offline across departments.
+  - Filterable company-wide attendance roster (`GET /attendance/roster`) with date range and department filters.
+- **Multi-Format Timesheet Statement Exports:**
+  - Instant client-side CSV and ReportLab PDF timesheet statement exports (`Export CSV`, `Export PDF`).
+  - Monthly KPI cards: Present Days, On-time Arrival Rate %, Total Productive Hours, and Overtime Hours.
+
+### 30. Theme Toggle Dynamic Scoping & Anti-Clipping Auth Layout Fix
+- **Scoped CSS Custom Properties:** Replaced hardcoded `!important` hex color rules with dynamically scoped CSS variables (`--auth-wrapper-bg`, `--auth-card-bg`, `--auth-input-bg`, `--auth-card-text`, etc.).
+- **Flawless Celestial Theme Switch:** Switching to Dark Mode transforms the login card into rich obsidian/navy (`#172033` card, `#0b0f19` inputs, `#f8fafc` text) on `#070913` canvas, completely resolving the previous white-card theme glitch.
+- **Segmented Mode Toggle (`.auth-mode-toggle-group`):** Direct tabbed navigation between Sign In and Self-Service Registration without leaving the page.
+
 ## Roadmap & Features Status
 
 - [x] **Alembic migrations** - Baseline and versioned schema migrations in `alembic/versions/`
@@ -1022,7 +1090,9 @@ git reset --soft HEAD~1
 - [x] **Privacy Shield Resilient Dynamic Loading** - Protected lazy-load error boundaries ensuring Brave Shields and adblockers never crash core login or dashboard routes
 - [x] **Modern Split-Screen Hero Sign-In Experience** - Cybernetic attendance showcase with live clock, current date, greeting, and 3D flip card authentication
 - [x] **Universal Session Timeout Management & Inactivity Auto-Logout** - Cross-device idle tracking, topbar live countdown pill (`⏳ 14:32`), adaptive warning modal, and automatic secure logout
-- [ ] **Employee attendance & time-tracking module** - Real-time clock-in/out, punch logs, work hour analytics, and regularization requests
+- [x] **Universal smartphone & all-ratio mobile screen compatibility** - Responsive flex layouts, `100dvh` units, and safe area notch clearance across Android and iOS
+- [x] **Dynamic dual-theme scoping & segmented mode toggle on Login/Register** - Scoped CSS theme custom properties and 1-click tab toggle
+- [x] **Employee attendance & time-tracking module** - Real-time clock-in/out, punch logs, work hour analytics, breaks, rosters, and regularization requests
 - [ ] **Leave & time-off management system** - Accrual balances, multi-day leave applications, and multi-tier manager approval workflows
 - [ ] **Performance appraisal & review management** - Evaluation cycles, metric scorecards, and appraisal-driven salary increment integrations
 - [ ] **Multi-factor authentication (MFA/2FA) & session manager** - TOTP authenticator QR setup via `pyotp` and concurrent session tracking
@@ -1046,9 +1116,9 @@ git reset --soft HEAD~1
 
 The following modules represent the next-generation architectural enhancements planned for future release cycles of the Employee Management & HRMS Platform:
 
-### 1. PDF Export & Official Company Reports Engine
+### 1. PDF Export & Official Company Reports Engine [DELIVERED in v2.5]
 - **Backend Architecture:**
-  - Integrated `reportlab` and `weasyprint` rendering pipelines.
+  - Integrated `reportlab` rendering pipelines with `%PDF-` binary streaming.
   - Endpoints:
     - `GET /reports/payslip/{emp_id}/pdf`: Generates formal, printable monthly salary slip vouchers containing gross earnings, statutory deductions (EPF, PT, ESI, TDS), net pay, and organization seal watermark.
     - `GET /reports/employees/pdf`: Filtered directory report formatted for HR printing.
@@ -1057,17 +1127,20 @@ The following modules represent the next-generation architectural enhancements p
 - **Frontend Integration:**
   - Dedicated "Export PDF" buttons embedded in `SalaryCalculator.jsx` (payslip voucher preview and instant PDF download), `Employees.jsx`, `Analytics.jsx`, and `HistoryModal.jsx`.
 
-### 2. Employee Attendance & Time-Tracking Module
+### 2. Employee Attendance & Time-Tracking Module [DELIVERED in v2.6]
 - **Backend Architecture:**
-  - New database table `attendance` (`id`, `emp_id`, `date`, `clock_in`, `clock_out`, `total_hours`, `status`: `present` | `late` | `half_day` | `absent`, `work_mode`: `office` | `remote` | `hybrid`).
+  - Database tables `attendance`, `attendance_break`, and `attendance_regularization`.
   - Endpoints:
-    - `POST /attendance/clock-in`: Captures timestamp and IP/work mode.
-    - `POST /attendance/clock-out`: Calculates shift duration and overtime.
-    - `GET /attendance`: Paginated attendance history with date-range filters.
+    - `POST /attendance/clock-in`: Captures timestamp, IP, and work mode (`office`, `remote`, `hybrid`).
+    - `POST /attendance/clock-out`: Calculates shift duration, overtime, and punctuality flags.
+    - `POST /attendance/break/start` & `POST /attendance/break/end`: Manages break intervals.
+    - `GET /attendance/today`: Live active punch status and shift duration.
     - `POST /attendance/regularize`: Allows employees to request correction for missed punches with manager approval flow.
+    - `GET /attendance/roster` & `GET /attendance/team-live`: Live company roster and team presence ticker.
+    - `GET /attendance/export/csv` & `GET /attendance/export/pdf`: Multi-format timesheet exports.
 - **Frontend Integration:**
-  - Topbar Quick-Action Clock-In / Clock-Out widget with live stopwatch timer.
-  - Dedicated `/attendance` dashboard with monthly calendar heatmap, punch history table, and manager approval queue.
+  - Workday Punch Terminal with real-time digital clock and dynamic elapsed shift timer.
+  - Dedicated `/attendance` dashboard (`Attendance.jsx`) with tabs for `My Punch & Timesheet`, `Team Live Ticker`, `Company Roster`, and `Regularizations`.
 
 ### 3. Leave & Time-Off Management System
 - **Backend Architecture:**
@@ -1227,4 +1300,4 @@ The following modules represent the next-generation architectural enhancements p
   - Install App banner prompt for mobile and desktop; offline indicator with cached directory browsing and queued background actions.
 
 ---
-*Last updated: 2026-10-05*
+*Last updated: 2026-10-31 (v2.6)*

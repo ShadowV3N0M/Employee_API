@@ -1,8 +1,8 @@
 # Code Style & Engineering Standards
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.5  
-**Date:** October 23, 2026  
+**Version:** 2.6  
+**Date:** October 31, 2026  
 **Scope:** Python (FastAPI/SQLAlchemy), JavaScript (React 19), Native CSS & Git Workflows  
 
 ---
@@ -135,6 +135,11 @@ border-radius: 10px;
 - Use descriptive kebab-case class names: `.btn-primary`, `.table-container`, `.modal-backdrop`.
 - Use modifier classes for state: `.input-error`, `.is-active`, `.is-loading`.
 - Scope role badges cleanly: `.badge.role-admin`, `.badge.role-manager`, `.badge.role-user`.
+
+### 4.3 Mobile Viewport & Dynamic Theming Standards
+- **Safe Area Insets:** For mobile web views, respect notch cutouts with `env(safe-area-inset-top)` / `bottom` / `left` / `right`.
+- **Dynamic Viewports:** Use `min-height: 100dvh` in addition to `100vh` to handle mobile browser navigation bars smoothly without jumpy repaints.
+- **Theme Scoping Over Hardcoded Overrides:** Never use `!important` hex color rules (`#ffffff !important`, `#0f172a !important`) on thematic components. Define CSS variables at the container root (`--auth-wrapper-bg`, `--auth-card-bg`) and override them cleanly under `[data-theme="dark"]`.
 
 ---
 

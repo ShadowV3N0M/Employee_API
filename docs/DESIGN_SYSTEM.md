@@ -1,8 +1,8 @@
 # Design System Specification
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.5  
-**Date:** October 23, 2026  
+**Version:** 2.6  
+**Date:** October 31, 2026  
 **Scope:** Design Tokens, Typography, Components, Theme Engine & Accessibility Guidelines  
 
 ---
@@ -172,7 +172,11 @@ Buttons are available in four functional variants:
   - Right column with 3D perspective (`perspective: 1200px`) and smooth flip transition (`transform: rotateY(180deg)`).
   - Front face: Sign In form with email/ID input, password visibility reveal, "Remember me" persistence, primary submit button, and Microsoft SSO placeholder.
   - Back face: Self-Service Registration and Account Recovery (Forgot Password) forms.
+  - Segmented Mode Toggle (`.auth-mode-toggle-group`) switching effortlessly between Sign In and Self-Service Registration without leaving the page.
   - Security indicator footer with green status pulse dot (`System secure • Secure access • Friday, Oct 23, 2026`).
+- **Dynamic Dual Theme Token Scoping:**
+  - Fully adaptive CSS custom properties (`--auth-wrapper-bg`, `--auth-card-bg`, `--auth-input-bg`, `--auth-card-text`, etc.) synchronized with the root `[data-theme="dark"]` attribute.
+  - Light mode matches elevated white card floating on `#f1f4f9` canvas. Dark mode transforms seamlessly into rich obsidian/navy (`#070913` wrapper, `#172033` card, `#0b0f19` inputs, `#f8fafc` text) with zero un-styled color leaks.
 
 ### 5.8 Cookie Compliance & Floating Controls
 - **Floating Settings Trigger (`.privacy-notice-pill`):**
@@ -181,10 +185,16 @@ Buttons are available in four functional variants:
 - **Granular Settings Modal:**
   - Categorized consent switches for Strictly Necessary (locked), Functional Preferences, and Analytics with one-click Save & Accept.
 
+### 5.9 Attendance & Time Tracking Terminal UI
+- **Live Workday Clock & Punch Terminal:** Monospace real-time clock (`HH:MM:SS`), interactive radio selector for work locations (`Office`, `Remote / WFH`), dynamic elapsed timer counters (`00h 00m 00s`), and context-aware action buttons (`Clock In Now`, `Start Break`, `End Break`, `Clock Out`).
+- **Punctuality & Status Badges:** Visual status indicator pill (`NOT CLOCKED IN`, `ON SHIFT / CLOCKED IN`, `ON BREAK`), punctuality arrival rate gauges, productive hours tally, and half-day / overtime flags.
+- **Timesheet Hub & Tabbed Navigation:** Multi-tab layout supporting `My Punch & Timesheet`, `Team Live Ticker`, `Company Roster`, and `Regularizations` with 1-click modal requests and CSV/PDF report generators.
+
 ---
 
-## 6. Responsive Breakpoints
+## 6. Responsive Breakpoints & Universal Smartphone Adaptations
 
+### 6.1 Viewport Breakpoints
 ```css
 /* Mobile Phones */
 @media (max-width: 639px) {
@@ -203,4 +213,10 @@ Buttons are available in four functional variants:
   .app-container { max-width: 1280px; margin: 0 auto; }
 }
 ```
+
+### 6.2 Universal Smartphone Screen & Safe-Area Rules
+- **Device Support:** Tested and verified across Android and iOS smartphones (iPhone SE, iPhone 14/15/16 Pro Max, Samsung Galaxy S23/S24/Ultra, Pixel 8/9, Foldables, and compact aspect ratios from 16:9 to 21:9).
+- **Dynamic Viewport Height (`dvh`):** Uses `min-height: 100dvh` to automatically compensate for expanding and collapsing browser URL address bars.
+- **Safe Area Insets:** Employs hardware-aware safe area variables (`--sat`, `--sab`, `--sal`, `--sar`) mapping to `env(safe-area-inset-top, 0px)` for seamless notch and bottom gesture-bar clearance.
+- **Anti-Clipping Flex Scrolling:** Split-screen authentication uses `margin: auto auto` within `.auth-flip-container` and `overflow-y: auto` so submit actions and security footers are never sliced off.
 

@@ -1,8 +1,8 @@
 # Database Architecture & Schema Specification
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.5  
-**Date:** October 23, 2026  
+**Version:** 2.6  
+**Date:** October 31, 2026  
 **Engines Supported:** MySQL 8.x (Production) | SQLite 3 (Automated Testing & Local Dev)  
 
 ---
@@ -17,6 +17,9 @@ erDiagram
     EMPLOYEE ||--o{ SALARY_HISTORY : "records"
     EMPLOYEE ||--o{ EMPLOYEE_EMERGENCY_CONTACT : "has SOS contacts"
     EMPLOYEE ||--o| USER : "links to login account"
+    EMPLOYEE ||--o{ ATTENDANCE : "logs attendance"
+    ATTENDANCE ||--o{ ATTENDANCE_BREAK : "records shift breaks"
+    EMPLOYEE ||--o{ ATTENDANCE_REGULARIZATION : "submits"
     USER ||--o{ PASSWORD_RESET_TOKEN : "owns"
     USER ||--o{ NOTIFICATION : "receives"
 
@@ -135,6 +138,52 @@ erDiagram
         varchar value
         varchar description
         datetime updated_at
+    }
+
+    ATTENDANCE {
+        int id PK
+        int emp_id FK
+        date attendance_date
+        datetime clock_in
+        datetime clock_out
+        varchar status
+        varchar work_mode
+        numeric total_hours
+        numeric regular_hours
+        numeric overtime_hours
+        boolean is_late
+        int late_minutes
+        boolean is_half_day
+        varchar notes
+        varchar ip_address
+        varchar device_info
+        datetime created_at
+        datetime updated_at
+    }
+
+    ATTENDANCE_BREAK {
+        int id PK
+        int attendance_id FK
+        varchar break_type
+        datetime start_time
+        datetime end_time
+        int duration_minutes
+        varchar notes
+        datetime created_at
+    }
+
+    ATTENDANCE_REGULARIZATION {
+        int id PK
+        int emp_id FK
+        date attendance_date
+        datetime requested_clock_in
+        datetime requested_clock_out
+        varchar reason
+        varchar status
+        int reviewed_by FK
+        datetime reviewed_at
+        varchar review_notes
+        datetime created_at
     }
 ```
 
@@ -317,6 +366,74 @@ CREATE TABLE system_setting (
 **Standard Key-Value Catalog:**
 - `session_timeout_minutes`: Global inactivity timeout in minutes (default: `"15"`).
 - `session_auto_logout_idle`: Toggle (`"true"` or `"false"`) determining whether inactive users are automatically logged out.
+
+### 2.12 Table: `attendance`
+Stores daily attendance clock-in/out records, work modes, net productive hours, and punctuality flags.
+```sql
+CREATE TABLE attendance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    emp_id INT NOT NULL,
+    attendance_date DATE NOT NULL,
+    clock_in DATETIME NULL,
+    clock_out DATETIME NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'present', -- 'present', 'late', 'half_day', 'absent', 'on_leave', 'holiday', 'wfh'
+    work_mode VARCHAR(20) NOT NULL DEFAULT 'office', -- 'office', 'remote', 'hybrid'
+    total_hours DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
+    regular_hours DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
+    overtime_hours DECIMAL(5, 2) NOT NULL DEFAULT 0.00,
+    is_late BOOLEAN NOT NULL DEFAULT FALSE,
+    late_minutes INT NOT NULL DEFAULT 0,
+    is_half_day BOOLEAN NOT NULL DEFAULT FALSE,
+    notes VARCHAR(500) NULL,
+    ip_address VARCHAR(50) NULL,
+    device_info VARCHAR(255) NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (emp_id) REFERENCES employee (Emp_ID) ON DELETE CASCADE,
+    UNIQUE KEY uq_emp_attendance_date (emp_id, attendance_date),
+    INDEX idx_emp_date (emp_id, attendance_date),
+    INDEX idx_status (status)
+);
+```
+
+### 2.13 Table: `attendance_break`
+Tracks intermittent breaks (lunch, tea, personal) taken during an active shift, deducted from total working hours.
+```sql
+CREATE TABLE attendance_break (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    attendance_id INT NOT NULL,
+    break_type VARCHAR(30) NOT NULL DEFAULT 'lunch', -- 'lunch', 'tea', 'personal', 'meeting'
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NULL,
+    duration_minutes INT NOT NULL DEFAULT 0,
+    notes VARCHAR(255) NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (attendance_id) REFERENCES attendance (id) ON DELETE CASCADE,
+    INDEX idx_attendance_break (attendance_id)
+);
+```
+
+### 2.14 Table: `attendance_regularization`
+Employee requests for missing punch rectification, technical glitch corrections, and manager approval workflows.
+```sql
+CREATE TABLE attendance_regularization (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    emp_id INT NOT NULL,
+    attendance_date DATE NOT NULL,
+    requested_clock_in DATETIME NULL,
+    requested_clock_out DATETIME NULL,
+    reason VARCHAR(500) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    reviewed_by INT NULL,
+    reviewed_at DATETIME NULL,
+    review_notes VARCHAR(500) NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (emp_id) REFERENCES employee (Emp_ID) ON DELETE CASCADE,
+    FOREIGN KEY (reviewed_by) REFERENCES employee (Emp_ID) ON DELETE SET NULL,
+    INDEX idx_emp_reg (emp_id, attendance_date),
+    INDEX idx_reg_status (status)
+);
+```
 
 ---
 

@@ -1,10 +1,10 @@
 # Product Requirements Document (PRD)
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.5  
+**Version:** 2.6  
 **Status:** Active / Production-Ready  
 **Authors:** Engineering & Product Team  
-**Last Updated:** October 23, 2026  
+**Last Updated:** October 31, 2026  
 
 ---
 
@@ -47,6 +47,7 @@ The **Enterprise Employee & Payroll Management System** provides a reactive, hig
 - **FR-AUTH-5 (Admin User Management):** Superuser portal to view all system accounts, update roles, toggle active status, and link user logins to underlying employee records (`POST /employees/link-user`).
 - **FR-AUTH-6 (Session Timeout & Inactivity Auto-Logout):** Universal inactivity tracking across all authenticated roles (`admin`, `manager`, `user`) and devices (Web & Mobile: mouse, keyboard, touch, scroll). Real-time idle countdown pill in the topbar (`SessionIdleBadge.jsx`) with 1-click session extension. Dynamic adaptive warning modal (15s for 1 min, 30s for 2 min, up to 60s for 5+ min). Automatic termination upon expiration with token clearing and redirect to `/login?reason=timeout&minutes=X` displaying an alert banner. Configured via `GET /auth/session-config` and `PUT /auth/session-config` with presets (1, 2, 5, 10, 15, 30, 45, 60, 120 mins) and global toggle.
 - **FR-AUTH-7 (Modern Split-Screen Hero Sign-In Experience & 3D Card Flip):** Two-column authentication experience (`Login.jsx`). Left side features an ambient cybernetic attendance showcase with real-time live clock, current system date, contextual greeting (`GOOD MORNING/AFTERNOON/EVENING`), and 4-column feature strip (strictly without photos/logos). Right side presents an elevated HR card with 3D flip animation between Sign In and Account Recovery (Forgot Password) / Self-Service Registration, "Remember me" persistence, password reveal toggles, inline validation, and Microsoft SSO placeholder.
+- **FR-AUTH-8 (Universal Smartphone Compatibility & Dynamic Theming):** Responsive anti-clipping flex layout ensuring the split-screen auth card fits cleanly on all smartphone screen sizes and ratios (Android & iOS). Dynamic scoped CSS variables (`--auth-wrapper-bg`, `--auth-card-bg`, `--auth-input-bg`, `--auth-card-text`) adapting instantly to Celestial theme toggles, eliminating white card color leakage in dark mode. Direct tabbed mode toggle (`.auth-mode-toggle-group`) enabling 1-click switching between Sign In and Register.
 
 ### 3.2 Employee Lifecycle & Data Integrity
 - **FR-EMP-1 (Employee Directory & Pagination):** Paginated listing (`GET /employees`) supporting column sorting (`Emp_ID`, `F_Name`, `L_Name`, `Salary`, `Dept_ID`, `joining_date`), keyword search, department filtering, and active/inactive status toggling.
@@ -105,6 +106,14 @@ The **Enterprise Employee & Payroll Management System** provides a reactive, hig
 - **FR-COMP-2 (Granular Cookie Consent & Floating Settings):** GDPR/ePrivacy compliant cookie notice banner (`PrivacyNotice.jsx`) categorizing cookies into Necessary, Functional/Preferences, and Analytics. Persistent preferences stored in `localStorage` with a non-intrusive floating trigger located in the bottom-left viewport without occluding UI elements.
 - **FR-COMP-3 (Privacy Shield & Adblocker Resilience):** Resilient lazy loading in `App.jsx` catching script blockades so strict browser shields (e.g. Brave Shields) or adblockers never cause blank screen crashes on login or dashboard pages.
 
+### 3.11 Employee Attendance & Time-Tracking Module
+- **FR-ATT-1 (Daily Punch Terminal):** Real-time clock-in and clock-out with work mode selector (`Office`, `Remote / WFH`, `Hybrid`), live shift timer (`HH:MM:SS`), and automatic punctuality computation (on-time vs. late arrival metrics).
+- **FR-ATT-2 (Shift Breaks Tracker):** Pause active shift with labeled breaks (`Lunch`, `Tea / Coffee`, `Personal`, `Meeting`). Net working hours automatically subtract active break minutes to ensure accurate productivity records.
+- **FR-ATT-3 (Attendance Regularization Workflow):** Self-service submission for missed punches or system adjustments (`POST /attendance/regularize`) with admin and manager review, approval, and rejection audit trails.
+- **FR-ATT-4 (Manual Admin Adjustment):** Privileged manual punch adjustments and overrides with mandatory reason logging for HR record consistency.
+- **FR-ATT-5 (Team Live Roster & Live Ticker):** Real-time visibility into who is clocked in, on break, or offline across the organization.
+- **FR-ATT-6 (Multi-Format Timesheet Export):** Instant client-side CSV and PDF timesheet statement exports featuring monthly KPI cards (Present Days, On-time Arrival %, Total Productive Hours, Overtime Hours).
+
 ---
 
 ## 4. Non-Functional Requirements
@@ -137,6 +146,6 @@ The **Enterprise Employee & Payroll Management System** provides a reactive, hig
 
 1. **Zero Overwrite Rate:** $100\%$ success in preserving existing employee records during duplicate ID additions via the auto-shift mechanism.
 2. **Consecutive ID Integrity:** $0$ gaps in employee ID sequences following permanent hard deletions.
-3. **Test Suite Health:** $100\%$ pass rate across the automated `pytest` test suite ($46$ integration tests across `test_main.py` and `test_reports.py`).
+3. **Test Suite Health:** $100\%$ pass rate across the automated `pytest` test suite ($56$ integration tests across `test_attendance.py`, `test_main.py`, and `test_reports.py`).
 4. **Build Reliability:** Zero errors or untyped warnings during `npm run build`.
 

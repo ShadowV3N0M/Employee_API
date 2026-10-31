@@ -3,8 +3,8 @@
 **Project:** Enterprise Employee & Payroll Management System  
 **Audience:** Autonomous AI Agents (Antigravity, Cursor, Copilot, Claude Code, Devins)  
 **Status:** Mandatory Implementation Standard  
-**Version:** 2.5  
-**Last Updated:** October 23, 2026  
+**Version:** 2.6  
+**Last Updated:** October 31, 2026  
 
 ---
 
@@ -126,6 +126,29 @@ When `logout()` is triggered automatically due to inactivity:
 
 ---
 
+### 🔴 Invariant 11: Dynamic Auth Theme Variables & Sizing
+When styling the split-screen authentication stage (`Login.jsx`, `.auth-split-wrapper`):
+- **Never use hardcoded `!important` hex color values** on cards, stages, or inputs. All styling must rely on scoped CSS custom properties (`--auth-wrapper-bg`, `--auth-card-bg`, `--auth-input-bg`, `--auth-card-text`, etc.) defined under `.auth-split-wrapper` and overridden under `[data-theme="dark"] .auth-split-wrapper`.
+- **Prevent Vertical Scroll Clipping:** Use `margin: auto auto` on `.auth-flip-container` and flexible auto height with `overflow-y: auto` on `.auth-card-stage` so forms remain fully accessible and never slice off footers on small screens.
+
+---
+
+### 🔴 Invariant 12: Universal Smartphone & Safe-Area Compatibility
+All UI components, dashboards, and authentication screens must remain 100% responsive across every mobile screen size (Android and iOS devices, foldables, and ultra-wide aspect ratios):
+- **Dynamic Viewports & Notches:** Always combine `min-height: 100vh; min-height: 100dvh;` with CSS safe area insets:
+  `padding: max(20px, var(--sat)) max(16px, var(--sar)) max(20px, var(--sab)) max(16px, var(--sal));`
+  where `--sat`, `--sab`, `--sal`, `--sar` map to `env(safe-area-inset-top, 0px)`, etc.
+- **Touch & Scroll Mechanics:** Apply `-webkit-overflow-scrolling: touch` on scrollable containers and avoid fixed element heights that clip actions below the fold.
+
+---
+
+### 🔴 Invariant 13: Clean JSON Payload Serialization
+When dispatching client requests in `api.js`:
+- Never double-serialize JSON payloads with nested `JSON.stringify()`. Let `this.request()` handle serialization of standard JavaScript objects.
+- In FastAPI backend routers, accept optional JSON request bodies cleanly using `Body(default_factory=...)` to prevent Pydantic V2 extraction errors on empty or omitted payloads.
+
+---
+
 ## 3. Standard Operating Commands
 
 ### 3.1 Python Backend & Test Suite
@@ -165,7 +188,7 @@ Always invoke Python through the active virtual environment:
 Before marking any coding task complete or reporting results back to the user, every AI agent must execute this verification checklist:
 
 1. [ ] **Dual-Sync Verification:** Were modified frontend files in `employee_frontend/src/` copied to `employee_api/frontend/src/`?
-2. [ ] **Test Execution:** Did `pytest` run with **100% pass rate** (46/46 passed, 0 failures, 0 errors)?
+2. [ ] **Test Execution:** Did `pytest` run with **100% pass rate** (56/56 passed, 0 failures, 0 errors)?
 3. [ ] **Frontend Build Verification:** Did `npm run build` finish successfully with 0 compilation errors?
 4. [ ] **No Regression in Core Invariants:** Did you verify that `node.exe` was untouched in `employee_api/frontend/`?
 5. [ ] **Docstring & Comment Integrity:** Were all existing unrelated docstrings, comments, and type hints preserved?

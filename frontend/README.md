@@ -29,9 +29,12 @@ A modern React + Vite single-page application for the Employee Management system
 - **Real-Time Push Notifications & Live Bell (`NotificationBell.jsx`, `NotificationContext.jsx`):** Full-duplex WebSocket connection, ringing bell animation, unread badge counter, synthesized HTML5 Web Audio chime, floating real-time toast alerts, notification inbox with category filters, and Manager/Admin instant broadcast modal.
 - **Employee Self-Service Profile & Emergency Contacts (`Profile.jsx`, `EmployeeDetailModal.jsx`):** Authenticated personal profile portal allowing staff to manage personal phone, blood group with medical badge, date of birth with live age calculator, marital status, and residential address; interactive Emergency Contacts & SOS directory with primary contact hero spotlight, 1-click click-to-call links, and copy-number shortcuts; integrated SOS view in Employee Detail Modal for managers and HR admins.
 - **Official Reports & PDF Generator Hub (`Reports.jsx`, `api.js`):** Comprehensive document generation suite powered by ReportLab. Features dedicated tabbed generators for Monthly Payslip Vouchers (with Indian earnings/deductions breakdown and net pay in Lakhs/Crores words), Employee Directory & Headcount Reports (Landscape A4 with KPI summary), Department Budget & Expense Statements, and Formal Salary Revision Letters with historical progression audit logs. Includes contextual PDF download actions across `Employees.jsx`, `EmployeeDetailModal.jsx`, `SalaryCalculator.jsx`, `Departments.jsx`, and `Profile.jsx`.
-- **Modern Split-Screen Hero Sign-In & 3D Card Flip (`Login.jsx`):** Dual-column authentication layout. Left side features an ambient cybernetic workplace showcase with real-time live clock, current system date, contextual greeting (`GOOD MORNING/AFTERNOON/EVENING`), and 4-pillar feature strip (strictly without photos/logos). Right side presents an elevated HR card with smooth 3D flip animation between Sign In and Self-Service Registration / Account Recovery (Forgot Password), "Remember me" persistence, password reveal toggles, inline field validation, and Microsoft SSO placeholder.
+- **Modern Split-Screen Hero Sign-In & 3D Card Flip (`Login.jsx`):** Dual-column authentication layout. Left side features an ambient cybernetic workplace showcase with real-time live clock, current system date, contextual greeting (`GOOD MORNING/AFTERNOON/EVENING`), and 4-pillar feature strip (strictly without photos/logos). Right side presents an elevated HR card with smooth 3D flip animation between Sign In and Self-Service Registration / Account Recovery (Forgot Password), "Remember me" persistence, password reveal toggles, inline field validation, and Microsoft SSO placeholder. Features direct tabbed segmented mode toggle (`.auth-mode-toggle-group`) to switch effortlessly between Sign In and Register.
 - **Universal Session Timeout & Inactivity Auto-Logout (`SessionTimeoutManager.jsx`, `SessionIdleBadge.jsx`, `SessionTimeoutModal.jsx`):** Inactivity detection across desktop and mobile devices (mouse, keyboard, touch, scroll, and tab visibility) for all roles (`admin`, `manager`, `user`). Displays a live topbar countdown pill (`⏳ 14:32`) with 1-click session extension and pulsing red urgent alert state (`⚠️ 00:45`). Features adaptive warning thresholds (15s for 1 min, 30s for 2 min, up to 60s for 5+ min) and automatic redirect to `/login?reason=timeout&minutes=X` with an explicit alert banner. Admin modal enables quick configuration with presets (1, 2, 5, 10, 15, 30, 45, 60, 120 mins) and global auto-logout toggle.
 - **HTTPS Enforcement, Cookie Consent & Browser Privacy Shield Resilience (`PrivacyNotice.jsx`, `App.jsx`):** GDPR/ePrivacy compliant cookie notice banner with categorized preferences and non-occluding floating trigger (`Cookie Settings 🍪`) in the bottom-left viewport. Resilient lazy-loading in `App.jsx` with rejection error trapping ensures strict browser shields (e.g. Brave Shields) or adblockers never crash core login or dashboard routes.
+- **Employee Attendance & Time-Tracking Module (`Attendance.jsx`):** Comprehensive workday punch terminal featuring a live real-time clock (`HH:MM:SS`), interactive work mode selector (`Office`, `Remote / WFH`, `Hybrid`), dynamic elapsed shift timer (`00h 00m 00s`), and context-aware action buttons (`Clock In Now`, `Start Break`, `End Break`, `Clock Out`). Tracks shift breaks (lunch, tea, personal) deducted from gross time, computes punctuality flags (on-time arrival rate, late minutes, half-day flags), provides self-service missed punch regularization requests with manager/admin approval workflow, live team presence ticker, company attendance roster, and instant client-side CSV / ReportLab PDF timesheet statement exports.
+- **Universal Smartphone & Screen Ratio Compatibility:** Full responsiveness across all smartphone viewports (Android & iOS). Uses dynamic viewport height units (`100dvh`), hardware-aware safe area padding (`env(safe-area-inset-top)` / `bottom` / `left` / `right`) for notch and home gesture bar clearance, and anti-clipping flex centering (`margin: auto auto`) preventing button or footer cutoff on compact screen ratios.
+- **Dynamic Scoped Theming (Light / Dark Mode):** Scoped CSS custom properties (`--auth-wrapper-bg`, `--auth-card-bg`, `--auth-input-bg`, `--auth-card-text`, etc.) synchronized with root `[data-theme="dark"]` and `[data-theme="light"]`, eliminating hardcoded color leakage and providing seamless Celestial theme switching.
 
 ---
 
@@ -77,6 +80,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 - Interactive API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Health Check: [http://localhost:8000/health](http://localhost:8000/health)
+- Test Suite: 56 automated integration tests (`pytest -v`) with 100% pass rate.
 
 ---
 
@@ -102,7 +106,14 @@ employee_frontend/
     ├── components/
     │   ├── Layout.jsx         # Responsive top navigation bar with user profile & theme toggle
     │   ├── ThemeToggle.jsx    # Sleek Light / Dark mode toggle button
+    │   ├── ThemeMascot.jsx    # Animated sunrise rooster (light) and twilight owl (dark) mascots
+    │   ├── NotificationBell.jsx # Live WebSocket bell with unread counter & audio chime
+    │   ├── SessionTimeoutManager.jsx # Inactivity monitor across mouse, touch, scroll & visibility
+    │   ├── SessionIdleBadge.jsx # Topbar live countdown pill with 1-click session extension
+    │   ├── SessionTimeoutModal.jsx # Admin session policy configuration dialog
+    │   ├── PrivacyNotice.jsx  # Floating cookie preferences pill & settings modal
     │   ├── Modal.jsx          # Reusable accessible modal dialog
+    │   ├── FieldError.jsx     # Inline field validation error feedback
     │   ├── EmployeeDetailModal.jsx # Role-based employee profile popup (admin/manager/user)
     │   ├── EmployeeForm.jsx   # Add/Edit employee modal with auto-email preview
     │   ├── SalaryModal.jsx    # Admin salary revision modal (set / increment)
@@ -113,13 +124,18 @@ employee_frontend/
     │   ├── DepartmentHistoryModal.jsx # Department revision & budget change history table
     │   └── SortByDropdown.jsx # Universal popover dropdown for field selection and direction toggle
     └── pages/
-        ├── Login.jsx          # Login, Registration, and Forgot-Password request
+        ├── Login.jsx          # Split-screen hero, 3D flip card, segmented mode toggle
         ├── ResetPassword.jsx  # Token verification and password reset screen
         ├── Employees.jsx      # Paginated directory table, filters, and actions
         ├── Departments.jsx    # Department listing, budget, and department creation
         ├── Analytics.jsx      # Company-wide payroll KPIs, headcount, and budget utilization
         ├── Users.jsx          # Admin user management and role promotion
-        └── SalaryCalculator.jsx # Employee salary & in-hand take-home pay calculator with payslip preview
+        ├── SalaryCalculator.jsx # Employee salary & in-hand take-home pay calculator with payslip preview
+        ├── Attendance.jsx     # Workday punch terminal, shift breaks, regularization, and timesheet exports
+        ├── Holidays.jsx       # Annual holiday calendar, announcements bulletin board, business days
+        ├── Profile.jsx        # Employee self-service personal profile & emergency SOS contacts
+        ├── Reports.jsx        # ReportLab PDF generator hub for payslips, rosters, revision letters
+        └── NotFound.jsx       # 404 error boundary page
 ```
 
 ---
@@ -353,9 +369,9 @@ employee_frontend/
 
 The following modules represent the next-generation architectural enhancements planned for future release cycles of the Employee Management & HRMS Platform:
 
-### 1. PDF Export & Official Company Reports Engine
+### 1. PDF Export & Official Company Reports Engine [DELIVERED in v2.5]
 - **Backend Architecture:**
-  - Integrated `reportlab` and `weasyprint` rendering pipelines.
+  - Integrated `reportlab` rendering pipelines with `%PDF-` binary streaming.
   - Endpoints:
     - `GET /reports/payslip/{emp_id}/pdf`: Generates formal, printable monthly salary slip vouchers containing gross earnings, statutory deductions (EPF, PT, ESI, TDS), net pay, and organization seal watermark.
     - `GET /reports/employees/pdf`: Filtered directory report formatted for HR printing.
@@ -364,17 +380,20 @@ The following modules represent the next-generation architectural enhancements p
 - **Frontend Integration:**
   - Dedicated "Export PDF" buttons embedded in `SalaryCalculator.jsx` (payslip voucher preview and instant PDF download), `Employees.jsx`, `Analytics.jsx`, and `HistoryModal.jsx`.
 
-### 2. Employee Attendance & Time-Tracking Module
+### 2. Employee Attendance & Time-Tracking Module [DELIVERED in v2.6]
 - **Backend Architecture:**
-  - New database table `attendance` (`id`, `emp_id`, `date`, `clock_in`, `clock_out`, `total_hours`, `status`: `present` | `late` | `half_day` | `absent`, `work_mode`: `office` | `remote` | `hybrid`).
+  - Database tables `attendance`, `attendance_break`, and `attendance_regularization`.
   - Endpoints:
-    - `POST /attendance/clock-in`: Captures timestamp and IP/work mode.
-    - `POST /attendance/clock-out`: Calculates shift duration and overtime.
-    - `GET /attendance`: Paginated attendance history with date-range filters.
+    - `POST /attendance/clock-in`: Captures timestamp, IP, and work mode (`office`, `remote`, `hybrid`).
+    - `POST /attendance/clock-out`: Calculates shift duration, overtime, and punctuality flags.
+    - `POST /attendance/break/start` & `POST /attendance/break/end`: Manages break intervals.
+    - `GET /attendance/today`: Live active punch status and shift duration.
     - `POST /attendance/regularize`: Allows employees to request correction for missed punches with manager approval flow.
+    - `GET /attendance/roster` & `GET /attendance/team-live`: Live company roster and team presence ticker.
+    - `GET /attendance/export/csv` & `GET /attendance/export/pdf`: Multi-format timesheet exports.
 - **Frontend Integration:**
-  - Topbar Quick-Action Clock-In / Clock-Out widget with live stopwatch timer.
-  - Dedicated `/attendance` dashboard with monthly calendar heatmap, punch history table, and manager approval queue.
+  - Workday Punch Terminal with real-time digital clock and dynamic elapsed shift timer.
+  - Dedicated `/attendance` dashboard (`Attendance.jsx`) with tabs for `My Punch & Timesheet`, `Team Live Ticker`, `Company Roster`, and `Regularizations`.
 
 ### 3. Leave & Time-Off Management System
 - **Backend Architecture:**
@@ -558,4 +577,4 @@ git push                      # Push to GitHub
 ```
 
 ---
-*Last updated: 2026-10-23 (In sync with backend v2.5)*
+*Last updated: 2026-10-31 (In sync with backend v2.6)*

@@ -1,8 +1,8 @@
 # Architecture & Data Specification
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.5  
-**Date:** October 23, 2026  
+**Version:** 2.6  
+**Date:** October 31, 2026  
 **Scope:** Frontend, Backend, Database, Real-Time Networking & Data Pipeline  
 
 ---
@@ -38,6 +38,7 @@ The system implements a decoupled, modern client-server architecture consisting 
 |   |  | - /employees- /reports |   | - passlib/bcrypt  |   | (10 & 60 /min) |  |   |
 |   |  | - /depts    - /holidays|   | - RBAC Guards     |   |                |  |   |
 |   |  | - /profile  - /notifs  |   |                   |   +----------------+  |   |
+|   |  | - /attendance          |   |                   |                       |   |
 |   |  +------------------------+   +-------------------+                       |   |
 |   |                                                                           |   |
 |   |  +---------------------------------------------------------------------+  |   |
@@ -85,6 +86,7 @@ employee_api/
 │   ├── database.py        # SQLAlchemy Engine, SessionLocal, Base metadata declaration
 │   ├── main.py            # FastAPI entry point, CORS middleware, WebSocket & route registration
 │   ├── models/            # SQLAlchemy declarative database models
+│   │   ├── attendance.py  # AttendanceDB, AttendanceBreakDB, AttendanceRegularizationDB
 │   │   ├── department.py  # DepartmentDB, DepartmentHistoryDB
 │   │   ├── employee.py    # EmployeeDB, SalaryHistoryDB, EmergencyContactDB
 │   │   ├── holiday.py     # HolidayDB, AnnouncementDB
@@ -93,6 +95,7 @@ employee_api/
 │   │   └── user.py        # UserDB, PasswordResetTokenDB
 │   ├── routers/           # HTTP & WebSocket route handlers
 │   │   ├── analytics.py   # Headcount metrics, department budget summaries
+│   │   ├── attendance.py  # Clock in/out, break tracking, regularization, team roster, CSV/PDF
 │   │   ├── auth.py        # Register, login, session timeout policy, token refresh, password reset
 │   │   ├── departments.py # Department CRUD & budget revisions
 │   │   ├── employees.py   # Employee CRUD, bulk delete/restore, auto-shift, Excel endpoints
@@ -121,7 +124,9 @@ The frontend is structured as a modular component hierarchy with clean state bou
   - `SessionTimeoutManager.jsx`: Global inactivity detector listening across desktop and mobile devices (`mousedown`, `keydown`, `touchstart`, `scroll`, `visibilitychange`), broadcasting 1-second countdown ticks, and triggering automatic logout upon expiration.
   - `SessionIdleBadge.jsx`: Real-time countdown badge mounted in the topbar (`⏳ 14:48`) with click-to-extend functionality and urgent amber/red alert states.
   - `SessionTimeoutModal.jsx`: Administrative configuration dialog with quick testing presets (1, 2, 5, 10, 15, 30, 45, 60, 120 min) and global auto-logout toggle.
-- **Modern Authentication Experience (`Login.jsx`):** Split-screen layout featuring a dynamic cybernetic attendance showcase on the left (live clock, system date, greeting, attendance metrics without photos/logos) and an elevated 3D card flip form on the right (Sign In, Account Recovery, Registration).
+- **Modern Authentication Experience (`Login.jsx`):** Split-screen layout featuring a dynamic cybernetic attendance showcase on the left (live clock, system date, greeting, attendance metrics without photos/logos) and an elevated 3D card flip form on the right (Sign In, Account Recovery, Registration) with fully reactive Light and Dark theme variable styling.
+- **Attendance & Time-Tracking Module (`Attendance.jsx`):** Daily punch terminal supporting punch-in/out, work modes (office/WFH/hybrid), active shift timers, intermittent break tracking, manual manager adjustments, attendance regularization requests, live company rosters, and monthly timesheet statement exports.
+- **Universal Smartphone & All-Screen Responsive Architecture:** Responsive CSS viewport architecture using `min-height: 100dvh`, environment safe area insets (`env(safe-area-inset-top)` / `bottom` / `left` / `right`), touch-scrolling optimization, and adaptive flex layouts with `margin: auto auto` guaranteeing zero vertical clipping or UI button occlusion across Android and iOS smartphone form factors.
 - **API Client Layer (`api.js`):** Unified fetch abstraction handling JSON payloads, URL search parameters, authorization header injection (`Bearer <token>`), automatic 401 token invalidation triggers, and friendly error unwrapping.
 - **Context Providers:**
   - `NotificationContext.jsx`: Manages live WebSocket lifecycle, automatic reconnect backoff, synthesized Web Audio chime, floating toast queue, and unread badge state.

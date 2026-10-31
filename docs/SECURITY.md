@@ -1,8 +1,8 @@
 # Security Architecture & Threat Model
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.5  
-**Date:** October 23, 2026  
+**Version:** 2.6  
+**Date:** October 31, 2026  
 **Scope:** Authentication, Authorization, Cryptography, Data Masking & Defense-in-Depth  
 
 ---
@@ -97,6 +97,10 @@ The system enforces three distinct access tiers:
 | **Excel Batch Hub (Import / Mass Operations)** | ❌ | ❌ | ✅ |
 | **Permanent Deletions & Resequencing** | ❌ | ❌ | ✅ |
 | **User Role Management & Status Toggle** | ❌ | ❌ | ✅ |
+| **Clock-In / Clock-Out / Shift Breaks (Self)** | ✅ | ✅ | ✅ |
+| **Attendance Regularization (Submit Self)** | ✅ | ✅ | ✅ |
+| **Regularization Review & Approvals** | ❌ | ✅ | ✅ |
+| **Manual Attendance Overrides / Adjustments** | ❌ | ✅ | ✅ |
 
 ### 3.1 Live Database Role Verification
 Unlike naive JWT architectures where user permissions are baked statically into client tokens:

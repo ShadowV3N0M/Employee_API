@@ -1,8 +1,8 @@
 # Testing Strategy & Quality Assurance Guide
 
 **Project:** Enterprise Employee & Payroll Management System  
-**Version:** 2.5  
-**Date:** October 23, 2026  
+**Version:** 2.6  
+**Date:** October 31, 2026  
 **Test Frameworks:** `pytest` (Backend) | Vite Build & Oxlint (Frontend)  
 
 ---
@@ -11,7 +11,7 @@
 
 The testing strategy follows a **Zero-Mock Database** approach for integration and API testing:
 - **Real Database Semantics:** Rather than mocking database sessions, the test suite executes directly against an isolated **SQLite** engine. This ensures that real foreign keys, constraints, triggers, transaction rollbacks, and identity map behavior are rigorously exercised.
-- **Fast Feedback Loop:** The entire test suite of 46 comprehensive tests executes in under **35 seconds** locally.
+- **Fast Feedback Loop:** The entire test suite of 56 comprehensive tests executes in under **60 seconds** locally.
 - **Role Matrix Verification:** Every endpoint is tested across all three authorization contexts (`anonymous`, `user`, `manager`, `admin`) to guarantee zero authorization bypasses.
 
 ---
@@ -20,12 +20,25 @@ The testing strategy follows a **Zero-Mock Database** approach for integration a
 
 ```
 employee_api/tests/
+├── test_attendance.py # Attendance & Time Tracking suite (10 tests: Clock-in/out, Breaks, Regularizations, Rosters, CSV/PDF)
 ├── test_main.py       # Core integration suite (39 tests: Auth, RBAC, CRUD, Auto-Shift, Resequencing, Session Config)
 ├── test_reports.py    # ReportLab document engine (7 tests: Payslips, Revision Letters, Roster PDFs, Access Control)
 └── test_hashing.py    # Password hashing, salt validation, and bcrypt 4.0.1 compatibility
 ```
 
-### 2.1 `tests/test_main.py` Coverage Breakdown
+### 2.1 `tests/test_attendance.py` Coverage Breakdown
+- `test_clock_in_success`: Validates initial clock-in with work mode selection (`office`, `remote`, `hybrid`).
+- `test_clock_in_duplicate_prevention`: Prevents multiple active clock-ins on the same calendar day.
+- `test_clock_out_calculates_hours`: Computes net hours worked, punctuality flags, and status transitions.
+- `test_shift_break_lifecycle`: Tests starting and ending intermittent shift breaks (`lunch`, `tea`, `meeting`), deducting break minutes from productive hours.
+- `test_regularization_submission`: Tests employee submission of missed punch rectification with justification notes.
+- `test_regularization_review_admin`: Manager and admin approval/rejection workflows with status updates.
+- `test_manual_attendance_adjustment`: Privileged manual punches with audit reasons for HR data corrections.
+- `test_team_live_ticker`: Real-time roster visibility reporting who is on-shift, on-break, or absent.
+- `test_attendance_csv_export`: Direct CSV export with header formatting and employee punctuality summaries.
+- `test_attendance_pdf_export`: Validates ReportLab PDF generation with `%PDF-` binary magic bytes and timesheet tables.
+
+### 2.2 `tests/test_main.py` Coverage Breakdown
 - **Authentication & Security:**
   - `test_anonymous_cannot_read_employees`: 401 Unauthorized for unauthenticated calls.
   - `test_self_registration_cannot_pick_a_role`: Verifies public registrations default to `user`.
