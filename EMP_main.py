@@ -70,6 +70,8 @@ from app.config import (
     SMTP_PORT,
     SMTP_TLS,
     SMTP_USER,
+    RATE_LIMIT_SENSITIVE,
+    RATE_LIMIT_STANDARD,
     limiter,
 )
 # Business Logic Services imports
@@ -147,6 +149,8 @@ __all__ = [
     "PASSWORD_RESET_TOKEN_EXPIRE_MINUTES",
     "EMAIL_DOMAIN",
     "CORS_ORIGINS",
+    "RATE_LIMIT_SENSITIVE",
+    "RATE_LIMIT_STANDARD",
     "limiter",
     "DepartmentDB",
     "DepartmentHistoryDB",

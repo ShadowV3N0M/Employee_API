@@ -10,7 +10,7 @@ authenticated access, backed by MySQL/Postgresql.
 - **MySQL** (via PyMySQL) - database
 - **python-jose** - JWT Auth tokens
 - **passlib + bcrypt** - Password hashing
-- **slowapi** - Rate limiting
+- **slowapi** - Rate limiting (120 req/min for sensitive operations, 300 req/min for standard)
 - **pytest** - test suite (runs against SQLite, no MySQL needed)
 - **React + Vite** - web frontend (in `frontend/`)
 

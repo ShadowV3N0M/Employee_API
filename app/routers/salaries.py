@@ -26,7 +26,7 @@ router = APIRouter(prefix="/employees", tags=["Salaries"])
 
 
 @router.post("/salary/bulk-increment")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def bulk_salary_increment(
     request: Request,
     payload: BulkSalaryIncrement,
@@ -394,7 +394,7 @@ def get_my_salary_profile(
 
 
 @router.put("/{emp_id}/salary")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def set_employee_salary(
     request: Request,
     emp_id: int,
@@ -449,7 +449,7 @@ def set_employee_salary(
 
 
 @router.post("/{emp_id}/salary/increment")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def increment_employee_salary(
     request: Request,
     emp_id: int,

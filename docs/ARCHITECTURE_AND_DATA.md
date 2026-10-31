@@ -35,7 +35,7 @@ The system implements a decoupled, modern client-server architecture consisting 
 |   |  +------------------------+   +-------------------+   +----------------+  |   |
 |   |  |     API Routers        |   |   Security Layer  |   | Rate Limiter   |  |   |
 |   |  | - /auth     - /salaries|   | - JWT (HS256)     |   | - slowapi      |  |   |
-|   |  | - /employees- /reports |   | - passlib/bcrypt  |   | (10 & 60 /min) |  |   |
+|   |  | - /employees- /reports |   | - passlib/bcrypt  |   | (120 & 300/min)|  |   |
 |   |  | - /depts    - /holidays|   | - RBAC Guards     |   |                |  |   |
 |   |  | - /profile  - /notifs  |   |                   |   +----------------+  |   |
 |   |  | - /attendance          |   |                   |                       |   |

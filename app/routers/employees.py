@@ -183,7 +183,7 @@ def download_template(template_type: str = "full"):
 
 
 @router.post("/upload-excel")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 async def upload_employees_excel(
     request: Request,
     file: UploadFile = File(...),
@@ -315,7 +315,7 @@ def export_employees(
 
 
 @router.post("/bulk-delete")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def bulk_delete_employees(
     request: Request,
     payload: BulkEmployeeDelete,
@@ -379,7 +379,7 @@ def bulk_delete_employees(
 
 
 @router.post("/bulk-deactivate")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def bulk_deactivate_employees(
     request: Request,
     emp_ids: list[int],
@@ -413,7 +413,7 @@ def bulk_deactivate_employees(
 
 
 @router.post("/bulk-restore")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def bulk_restore_employees(
     request: Request,
     emp_ids: list[int],
@@ -447,7 +447,7 @@ def bulk_restore_employees(
 
 
 @router.post("/bulk-activate-excel")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 async def bulk_activate_employees_via_excel(
     request: Request,
     file: UploadFile = File(...),
@@ -488,7 +488,7 @@ async def bulk_activate_employees_via_excel(
 
 
 @router.post("/bulk-deactivate-excel")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 async def bulk_deactivate_employees_via_excel(
     request: Request,
     file: UploadFile = File(...),
@@ -529,7 +529,7 @@ async def bulk_deactivate_employees_via_excel(
 
 
 @router.post("/bulk-delete-excel")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 async def bulk_delete_employees_via_excel(
     request: Request,
     file: UploadFile = File(...),
@@ -593,7 +593,7 @@ def get_employee(
 
 
 @router.post("")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def create_employee(
     request: Request,
     employee: Employee,
@@ -712,7 +712,7 @@ def create_employee(
 
 
 @router.put("/{emp_id}")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def update_employee(
     request: Request,
     emp_id: int,
@@ -853,7 +853,7 @@ def update_employee(
 
 
 @router.patch("/{emp_id}")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def patch_employee(
     request: Request,
     emp_id: int,
@@ -1025,7 +1025,7 @@ def patch_employee(
 
 @router.delete("/{emp_id}")
 @router.delete("/{emp_id}/deactivate")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def deactivate_employee(
     request: Request,
     emp_id: int,
@@ -1054,7 +1054,7 @@ def deactivate_employee(
 
 
 @router.delete("/{emp_id}/delete")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def delete_employee(
     request: Request,
     emp_id: int,
@@ -1113,7 +1113,7 @@ def delete_employee(
 
 
 @router.post("/{emp_id}/restore")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def restore_employee(
     request: Request,
     emp_id: int,

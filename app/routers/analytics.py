@@ -17,7 +17,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
 @router.get("/workforce")
-@limiter.limit("30/minute")
+@limiter.limit("150/minute")
 def get_workforce_analytics(
     request: Request,
     db: Session = Depends(get_db),

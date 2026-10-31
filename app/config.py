@@ -38,7 +38,9 @@ CORS_ORIGINS = [origin.strip()
                 for origin in _raw_cors.split(",") if origin.strip()]
 
 # Rate Limiter for this application
-limiter = Limiter(key_func=get_remote_address)
+RATE_LIMIT_SENSITIVE = os.getenv("RATE_LIMIT_SENSITIVE", "120/minute")
+RATE_LIMIT_STANDARD = os.getenv("RATE_LIMIT_STANDARD", "300/minute")
+limiter = Limiter(key_func=get_remote_address, default_limits=[RATE_LIMIT_STANDARD])
 
 # HTTPS Enforcement & HSTS Security Headers
 ENFORCE_HTTPS = os.getenv("ENFORCE_HTTPS", "false").lower() in ("true", "1", "yes")

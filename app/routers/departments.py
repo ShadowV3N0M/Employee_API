@@ -23,7 +23,7 @@ router = APIRouter(prefix="/departments", tags=["Departments"])
 
 
 @router.post("", response_model=DepartmentResponse)
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def create_department(
     request: Request,
     dept: DepartmentCreate,
@@ -86,7 +86,7 @@ def create_department(
 
 
 @router.post("/bulk-create")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def bulk_create_departments(
     request: Request,
     payload: DepartmentBulkCreate,
@@ -270,7 +270,7 @@ def get_department_history(
 
 
 @router.put("/{dept_id}", response_model=DepartmentResponse)
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def update_department(
     request: Request,
     dept_id: int,
@@ -346,7 +346,7 @@ def update_department(
 
 
 @router.delete("/{dept_id}")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def delete_department(
     request: Request,
     dept_id: int,

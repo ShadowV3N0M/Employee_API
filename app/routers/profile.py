@@ -112,7 +112,7 @@ def _to_profile_out(emp: EmployeeDB, user: UserDB, db: Session) -> ProfileOut:
 # =========================================================================
 
 @router.get("/employees/me/profile", response_model=ProfileOut)
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def get_my_profile(
     request: Request,
     db: Session = Depends(get_db),
@@ -136,7 +136,7 @@ def get_my_profile(
 
 
 @router.put("/employees/me/profile", response_model=ProfileOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def update_my_profile(
     request: Request,
     payload: ProfileSelfUpdate,
@@ -203,7 +203,7 @@ def update_my_profile(
 # =========================================================================
 
 @router.get("/employees/me/emergency-contacts", response_model=List[EmergencyContactOut])
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def list_my_emergency_contacts(
     request: Request,
     db: Session = Depends(get_db),
@@ -224,7 +224,7 @@ def list_my_emergency_contacts(
 
 
 @router.post("/employees/me/emergency-contacts", response_model=EmergencyContactOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def add_my_emergency_contact(
     request: Request,
     payload: EmergencyContactCreate,
@@ -257,7 +257,7 @@ def add_my_emergency_contact(
 
 
 @router.put("/employees/me/emergency-contacts/{contact_id}", response_model=EmergencyContactOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def update_my_emergency_contact(
     request: Request,
     contact_id: int,
@@ -300,7 +300,7 @@ def update_my_emergency_contact(
 
 
 @router.delete("/employees/me/emergency-contacts/{contact_id}")
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def delete_my_emergency_contact(
     request: Request,
     contact_id: int,
@@ -330,7 +330,7 @@ def delete_my_emergency_contact(
 # =========================================================================
 
 @router.get("/employees/{emp_id}/emergency-contacts", response_model=List[EmergencyContactOut])
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def get_employee_emergency_contacts(
     request: Request,
     emp_id: int,
@@ -355,7 +355,7 @@ def get_employee_emergency_contacts(
 
 
 @router.post("/employees/{emp_id}/emergency-contacts", response_model=EmergencyContactOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def admin_add_emergency_contact(
     request: Request,
     emp_id: int,
@@ -388,7 +388,7 @@ def admin_add_emergency_contact(
 
 
 @router.delete("/employees/{emp_id}/emergency-contacts/{contact_id}")
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def admin_delete_emergency_contact(
     request: Request,
     emp_id: int,
@@ -415,7 +415,7 @@ def admin_delete_emergency_contact(
 # =========================================================================
 
 @router.post("/employees/link-user")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def link_user_to_employee(
     request: Request,
     payload: LinkUserEmployee,

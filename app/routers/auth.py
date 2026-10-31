@@ -40,7 +40,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication & Users"])
 
 
 @router.post("/register", response_model=Token)
-@limiter.limit("5/minute")
+@limiter.limit("120/minute")
 def register(request: Request, user: UserRegister, db: Session = Depends(get_db)):
     """Public registration. Creates a plain 'user' account."""
     try:
@@ -99,7 +99,7 @@ def register(request: Request, user: UserRegister, db: Session = Depends(get_db)
 
 
 @router.post("/login", response_model=Token)
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -146,7 +146,7 @@ def get_current_user_profile(current_user: UserDB = Depends(get_current_user)):
 
 
 @router.post("/forgot-password")
-@limiter.limit("5/minute")
+@limiter.limit("120/minute")
 def forgot_password(
     request: Request,
     payload: ForgotPasswordRequest,
@@ -237,7 +237,7 @@ def verify_reset_token(token: str, db: Session = Depends(get_db)):
 
 
 @router.post("/reset-password")
-@limiter.limit("5/minute")
+@limiter.limit("120/minute")
 def reset_password(
     request: Request,
     payload: ResetPasswordConfirm,
@@ -341,7 +341,7 @@ def list_users(
 
 
 @router.post("/users")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def create_user_by_admin(
     request: Request,
     payload: UserCreateAdmin,
@@ -416,7 +416,7 @@ def create_user_by_admin(
 
 
 @router.put("/users/{username}/role")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def change_user_role(
     request: Request,
     username: str,
@@ -454,7 +454,7 @@ def change_user_role(
 
 
 @router.put("/change-password")
-@limiter.limit("5/minute")
+@limiter.limit("120/minute")
 def change_password(
     request: Request,
     payload: ChangePasswordRequest,
@@ -481,7 +481,7 @@ def change_password(
 
 
 @router.put("/users/{username}/status")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def change_user_status(
     request: Request,
     username: str,
@@ -512,7 +512,7 @@ def change_user_status(
 
 
 @router.delete("/users/{username}")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def delete_user(
     request: Request,
     username: str,
@@ -629,7 +629,7 @@ def update_session_config(
 
 
 @router.post("/refresh", response_model=Token)
-@limiter.limit("30/minute")
+@limiter.limit("120/minute")
 def refresh_session_token(
     request: Request,
     current_user: UserDB = Depends(get_current_user)

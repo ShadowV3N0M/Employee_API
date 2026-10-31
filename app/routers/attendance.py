@@ -69,7 +69,7 @@ def _get_linked_employee(db: Session, current_user: UserDB) -> EmployeeDB:
 # =========================================================================
 
 @router.post("/clock-in", response_model=AttendanceOut)
-@limiter.limit("15/minute")
+@limiter.limit("120/minute")
 def punch_clock_in(
     request: Request,
     payload: ClockInRequest = Body(default_factory=ClockInRequest),
@@ -92,7 +92,7 @@ def punch_clock_in(
 
 
 @router.post("/clock-out", response_model=AttendanceOut)
-@limiter.limit("15/minute")
+@limiter.limit("120/minute")
 def punch_clock_out(
     request: Request,
     payload: ClockOutRequest = Body(default_factory=ClockOutRequest),
@@ -109,7 +109,7 @@ def punch_clock_out(
 
 
 @router.post("/break/start", response_model=AttendanceBreakOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def punch_break_start(
     request: Request,
     payload: BreakStartRequest = Body(default_factory=BreakStartRequest),
@@ -127,7 +127,7 @@ def punch_break_start(
 
 
 @router.post("/break/end", response_model=AttendanceBreakOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def punch_break_end(
     request: Request,
     payload: BreakEndRequest = Body(default_factory=BreakEndRequest),

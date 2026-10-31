@@ -292,7 +292,7 @@ def require_admin(current_user: UserDB = Depends(get_current_user)) -> UserDB:
 # =========================================================
 
 @app.post("/auth/register", response_model=Token)
-@limiter.limit("5/minute")
+@limiter.limit("120/minute")
 def register(request: Request, user: UserRegister, db: Session = Depends(get_db)):
 
     try:
@@ -328,7 +328,7 @@ def register(request: Request, user: UserRegister, db: Session = Depends(get_db)
 
 
 @app.post("/auth/login", response_model=Token)
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -380,7 +380,7 @@ def health_check(db: Session = Depends(get_db)):
 # =========================================================
 
 @app.post("/departments")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def create_department(
     request: Request,
     dept: DepartmentCreate,
@@ -514,7 +514,7 @@ def get_employee(emp_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------
 
 @app.post("/employees")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def create_employee(
     request: Request,
     employee: Employee,
@@ -564,7 +564,7 @@ def create_employee(
 
 
 @app.put("/employees/{emp_id}")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def update_employee(
     request: Request,
     emp_id: int,
@@ -614,7 +614,7 @@ def update_employee(
 
 
 @app.patch("/employees/{emp_id}")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def patch_employee(
     request: Request,
     emp_id: int,
@@ -667,7 +667,7 @@ def patch_employee(
 
 
 @app.delete("/employees/{emp_id}/deactivate")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def deactivate_employee(
     request: Request,
     emp_id: int,
@@ -704,7 +704,7 @@ def deactivate_employee(
 
 
 @app.post("/employees/{emp_id}/restore")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def restore_employee(
     request: Request,
     emp_id: int,
@@ -740,7 +740,7 @@ def restore_employee(
 
 
 @app.delete("/employees/{emp_id}/delete")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def delete_employee(
     request: Request,
     emp_id: int,
@@ -795,7 +795,7 @@ def delete_employee(
 
 
 @app.put("/employees/{emp_id}/salary")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def set_employee_salary(
     request: Request,
     emp_id: int,
@@ -852,7 +852,7 @@ def set_employee_salary(
 
 
 @app.post("/employees/{emp_id}/salary/increment")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def increment_employee_salary(
     request: Request,
     emp_id: int,

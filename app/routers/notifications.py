@@ -128,7 +128,7 @@ async def websocket_notifications(
 # =========================================================================
 
 @router.get("/notifications", response_model=List[NotificationOut])
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def list_notifications(
     request: Request,
     unread_only: bool = Query(False, description="Filter only unread notifications"),
@@ -162,7 +162,7 @@ def get_unread_count(
 
 
 @router.patch("/notifications/{id}/read", response_model=NotificationOut)
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def mark_notification_read(
     request: Request,
     id: int,
@@ -185,7 +185,7 @@ def mark_notification_read(
 
 
 @router.patch("/notifications/mark-all-read", response_model=MarkAllReadResponse)
-@limiter.limit("30/minute")
+@limiter.limit("120/minute")
 def mark_all_read(
     request: Request,
     db: Session = Depends(get_db),
@@ -205,7 +205,7 @@ def mark_all_read(
 
 
 @router.delete("/notifications/{id}")
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def delete_notification(
     request: Request,
     id: int,
@@ -227,7 +227,7 @@ def delete_notification(
 
 
 @router.delete("/notifications/clear-all")
-@limiter.limit("30/minute")
+@limiter.limit("120/minute")
 def clear_all_read(
     request: Request,
     db: Session = Depends(get_db),
@@ -244,7 +244,7 @@ def clear_all_read(
 
 
 @router.post("/notifications/broadcast")
-@limiter.limit("10/minute")
+@limiter.limit("120/minute")
 def broadcast_custom_notification(
     request: Request,
     payload: NotificationCreate,

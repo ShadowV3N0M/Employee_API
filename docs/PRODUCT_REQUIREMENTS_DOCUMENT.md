@@ -125,9 +125,9 @@ The **Enterprise Employee & Payroll Management System** provides a reactive, hig
 
 ### 4.2 Security & Data Protection
 - **Password Storage:** Salted and hashed using `passlib` with `bcrypt` (work factor 12).
-- **Rate Limiting:** Guarded by `slowapi` with strict thresholds:
-  - Sensitive endpoints (login, deletion, salary revision): 10 requests / minute.
-  - Standard endpoints: 60 requests / minute.
+- **Rate Limiting:** Guarded by `slowapi` with high-capacity enterprise thresholds:
+  - Sensitive endpoints (login, deletion, salary revision): 120 requests / minute (elevated from 10 req/min).
+  - Standard endpoints: 300 requests / minute.
 - **CORS Protection:** Whitelisted client origins with strict header and credentials validation.
 - **Injection Prevention:** 100% parameterized queries via SQLAlchemy ORM; zero raw string concatenation.
 

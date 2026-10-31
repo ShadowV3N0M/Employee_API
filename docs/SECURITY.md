@@ -18,7 +18,7 @@ The application enforces a **Defense-in-Depth** security architecture designed t
 [ 1. Transport & Network Layer ] ──► HTTPS / TLS, CORS Whitelist
              │
              ▼
-[ 2. Rate Limiting Layer ] ────────► slowapi (10 req/min & 60 req/min)
+[ 2. Rate Limiting Layer ] ────────► slowapi (120 req/min sensitive & 300 req/min standard)
              │
              ▼
 [ 3. Authentication Layer ] ───────► JWT Signature Verification (HS256)
@@ -139,14 +139,16 @@ def employee_view(emp: EmployeeDB, role: str) -> dict:
 ## 4. Network & API Protection
 
 ### 4.1 Rate Limiting (`slowapi`)
-The API uses `slowapi` with in-memory IP bucket limiters to mitigate brute-force and denial-of-service attacks:
-- **Sensitive Operations (`10 requests / minute`):**
+The API uses `slowapi` with in-memory IP bucket limiters to mitigate brute-force and denial-of-service attacks while providing high-throughput capacity (>100 requests/minute) for fast enterprise operations and multi-user environments:
+- **Sensitive Operations (`120 requests / minute`):** Elevated from the legacy 10/min baseline to 120 requests/minute (>100 req/min) to ensure smooth user interactions without false-positive 429 Too Many Requests errors:
   - `/auth/login` (Brute-force protection)
   - `/employees/{id}/delete` (Destructive action prevention)
   - `/employees/{id}/restore`
   - `/employees/{id}/salary` (Compensation revision throttling)
   - `/employees/bulk-delete`
-- **Standard Operations (`60 requests / minute`):** General read queries and public endpoints.
+  - `/auth/register`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/change-password`
+  - `/attendance/clock-in`, `/attendance/clock-out`, `/attendance/break/start`, `/attendance/break/end`
+- **Standard Operations (`300 requests / minute`):** General read queries, directory browsing, rosters, and public endpoints.
 
 ### 4.2 Cross-Origin Resource Sharing (CORS)
 - Middleware: `CORSMiddleware`

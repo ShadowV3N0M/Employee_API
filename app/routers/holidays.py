@@ -70,7 +70,7 @@ def _announcement_to_out(a: AnnouncementDB, db: Session) -> AnnouncementOut:
 # =========================================================================
 
 @router.get("/holidays", response_model=List[HolidayOut])
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def list_holidays(
     request: Request,
     year: Optional[int] = Query(None, description="Filter by year (e.g. 2026)"),
@@ -99,7 +99,7 @@ def list_holidays(
 
 
 @router.get("/holidays/upcoming", response_model=List[HolidayOut])
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def upcoming_holidays(
     request: Request,
     limit: int = Query(5, ge=1, le=20),
@@ -119,7 +119,7 @@ def upcoming_holidays(
 
 
 @router.get("/holidays/business-days", response_model=BusinessDaysResponse)
-@limiter.limit("30/minute")
+@limiter.limit("150/minute")
 def calculate_business_days(
     request: Request,
     start_date: date = Query(..., description="Start date (YYYY-MM-DD)"),
@@ -175,7 +175,7 @@ def calculate_business_days(
 
 
 @router.post("/holidays", response_model=HolidayOut)
-@limiter.limit("20/minute")
+@limiter.limit("150/minute")
 def create_holiday(
     request: Request,
     payload: HolidayCreate,
@@ -207,7 +207,7 @@ def create_holiday(
 
 
 @router.put("/holidays/{holiday_id}", response_model=HolidayOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def update_holiday(
     request: Request,
     holiday_id: int,
@@ -235,7 +235,7 @@ def update_holiday(
 
 
 @router.delete("/holidays/{holiday_id}")
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def delete_holiday(
     request: Request,
     holiday_id: int,
@@ -253,7 +253,7 @@ def delete_holiday(
 
 
 @router.post("/holidays/seed-defaults")
-@limiter.limit("5/minute")
+@limiter.limit("120/minute")
 def seed_default_holidays(
     request: Request,
     year: int = Query(2026, description="Year to seed (default 2026)"),
@@ -307,7 +307,7 @@ def seed_default_holidays(
 # =========================================================================
 
 @router.get("/announcements", response_model=List[AnnouncementOut])
-@limiter.limit("60/minute")
+@limiter.limit("150/minute")
 def list_announcements(
     request: Request,
     priority: Optional[str] = Query(None, description="Filter by priority: urgent, important, general, event"),
@@ -336,7 +336,7 @@ def list_announcements(
 
 
 @router.post("/announcements", response_model=AnnouncementOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def create_announcement(
     request: Request,
     payload: AnnouncementCreate,
@@ -378,7 +378,7 @@ def create_announcement(
 
 
 @router.put("/announcements/{announcement_id}", response_model=AnnouncementOut)
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def update_announcement(
     request: Request,
     announcement_id: int,
@@ -417,7 +417,7 @@ def update_announcement(
 
 
 @router.delete("/announcements/{announcement_id}")
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def delete_announcement(
     request: Request,
     announcement_id: int,

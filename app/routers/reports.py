@@ -59,7 +59,7 @@ def _check_employee_access(emp_id: int, current_user: UserDB, db: Session) -> Em
 # =========================================================================
 
 @router.get("/payslip/{emp_id}/pdf")
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def get_payslip_pdf(
     request: Request,
     emp_id: int,
@@ -109,7 +109,7 @@ def get_payslip_pdf(
 
 
 @router.get("/my-payslip/pdf")
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def get_my_payslip_pdf(
     request: Request,
     month: Optional[str] = Query(None),
@@ -145,7 +145,7 @@ def get_my_payslip_pdf(
 # =========================================================================
 
 @router.get("/employees/pdf")
-@limiter.limit("15/minute")
+@limiter.limit("120/minute")
 def get_employee_directory_pdf(
     request: Request,
     dept_id: Optional[int] = Query(None, description="Filter by department ID"),
@@ -234,7 +234,7 @@ def get_employee_directory_pdf(
 # =========================================================================
 
 @router.get("/departments/pdf")
-@limiter.limit("15/minute")
+@limiter.limit("120/minute")
 def get_department_budget_pdf(
     request: Request,
     inline: bool = Query(True, description="Open inline or trigger download"),
@@ -297,7 +297,7 @@ def get_department_budget_pdf(
 # =========================================================================
 
 @router.get("/salary-revisions/{emp_id}/pdf")
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def get_salary_revision_letter_pdf(
     request: Request,
     emp_id: int,
@@ -343,7 +343,7 @@ def get_salary_revision_letter_pdf(
 
 
 @router.get("/my-salary-revision/pdf")
-@limiter.limit("20/minute")
+@limiter.limit("120/minute")
 def get_my_salary_revision_letter_pdf(
     request: Request,
     inline: bool = Query(True),
