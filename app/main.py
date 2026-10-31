@@ -27,6 +27,7 @@ from app.routers import (
     reports_router,
     analytics_router,
     attendance_router,
+    sync_router,
 )
 
 
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(reports_router)
     app.include_router(analytics_router)
     app.include_router(attendance_router)
+    app.include_router(sync_router)
 
     @app.get("/", include_in_schema=False)
     def root():

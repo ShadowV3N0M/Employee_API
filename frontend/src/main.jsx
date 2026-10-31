@@ -4,7 +4,11 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./auth";
 import { ThemeProvider } from "./theme";
+import { registerServiceWorker } from "./sw-register";
 import "./styles.css";
+
+// Initialize Service Worker for PWA installability and offline support
+registerServiceWorker();
 
 class ErrorBoundary extends Component {
   constructor(props) {

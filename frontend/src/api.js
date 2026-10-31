@@ -33,6 +33,12 @@ export const clearToken = () => {
   }
 };
 
+export const isOnline = () => {
+  return typeof navigator !== "undefined" && typeof navigator.onLine === "boolean"
+    ? navigator.onLine
+    : true;
+};
+
 // Called when the server says our token is no longer valid (expired, user
 // deactivated...). AuthProvider registers a handler that logs the user out.
 let onUnauthorized = () => { };
@@ -66,6 +72,14 @@ function errorMessage(data, fallback) {
 }
 
 async function request(path, { method = "GET", body, form, auth = true } = {}) {
+  // Offline validation for write methods
+  if (!isOnline() && method !== "GET") {
+    throw new ApiError(
+      "You are currently offline. Actions and data modifications require an active network connection.",
+      0
+    );
+  }
+
   const headers = {};
   let payload;
 
@@ -85,6 +99,20 @@ async function request(path, { method = "GET", body, form, auth = true } = {}) {
   try {
     res = await fetch(`${BASE_URL}${path}`, { method, headers, body: payload });
   } catch {
+    // Direct cache fallback if offline and service worker has not intercepted
+    if (typeof window !== "undefined" && "caches" in window && method === "GET") {
+      try {
+        const cached = await caches.match(`${BASE_URL}${path}`);
+        if (cached) {
+          return await cached.json();
+        }
+      } catch {
+        // Fallback to normal error handling below
+      }
+    }
+    if (!isOnline()) {
+      throw new ApiError("You are currently offline. Please reconnect to perform this action.", 0);
+    }
     throw new ApiError("Cannot reach the server. Is the API running?", 0);
   }
 
@@ -614,5 +642,10 @@ export const api = {
     params.set("inline", String(inline));
     return `${BASE_URL}/attendance/export/pdf?${params.toString()}`;
   },
+
+  // --- sync / offline pwa ---
+  getSyncDelta: (since = null) =>
+    request(`/sync/delta${since ? `?since=${encodeURIComponent(since)}` : ""}`),
+  getSyncStatus: () => request("/sync/status"),
 };
 

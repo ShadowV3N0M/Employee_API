@@ -6,6 +6,8 @@ import ChangePasswordModal from "./ChangePasswordModal";
 import NotificationBell from "./NotificationBell";
 import SessionTimeoutModal from "./SessionTimeoutModal";
 import SessionIdleBadge from "./SessionIdleBadge";
+import OfflineIndicator from "./OfflineIndicator";
+import PWAInstallPrompt from "./PWAInstallPrompt";
 
 function getInitials(name) {
   if (!name) return "U";
@@ -243,6 +245,7 @@ export default function Layout() {
             </div>
 
             <div className="topbar-right">
+              <PWAInstallPrompt variant="button" />
               <SessionIdleBadge />
               <ThemeToggle />
               <NotificationBell />
@@ -410,6 +413,10 @@ export default function Layout() {
           onSaved={(mins) => handlePasswordSuccess(`Portal session timeout updated to ${mins} minutes!`)}
         />
       )}
+
+      {/* PWA Offline and Install Prompts */}
+      <OfflineIndicator />
+      <PWAInstallPrompt variant="banner" />
     </div>
   );
 }

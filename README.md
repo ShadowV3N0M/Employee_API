@@ -1108,7 +1108,7 @@ git reset --soft HEAD~1
 - [ ] **Single Sign-On (SSO)** - Enterprise SSO integration via Google Workspace and Microsoft 365 (OAuth2 / OIDC)
 - [ ] **Fine-grained custom permission builder** - Granular role and permission matrix beyond fixed admin/manager/user tiers
 - [ ] **Scheduled, emailed recurring reports** - Automated cron delivery of payroll, attendance, and budget reports directly to executive inboxes
-- [ ] **Progressive Web App (PWA) & offline support** - Service worker caching, installable mobile app experience, and offline-resilient directory browsing
+- [x] **Progressive Web App (PWA) & offline support** [DELIVERED in v2.6] - Service worker caching, installable mobile app experience, offline-resilient directory browsing, and delta sync ETag engine
 
 ---
 
@@ -1142,7 +1142,19 @@ The following modules represent the next-generation architectural enhancements p
   - Workday Punch Terminal with real-time digital clock and dynamic elapsed shift timer.
   - Dedicated `/attendance` dashboard (`Attendance.jsx`) with tabs for `My Punch & Timesheet`, `Team Live Ticker`, `Company Roster`, and `Regularizations`.
 
-### 3. Leave & Time-Off Management System
+### 3. Progressive Web App (PWA) & Offline Synchronization Engine [DELIVERED in v2.6]
+- **Backend Architecture:**
+  - Delta synchronization endpoint `GET /sync/delta` supporting `since` ISO timestamp query filters and deterministic MD5 `ETag` generation with HTTP `304 Not Modified` 0-byte caching.
+  - Publicly accessible connectivity and health probe `GET /sync/status` for instant mobile reconnection detection.
+  - Dedicated automated test suite in `employee_api/tests/test_sync.py` verifying status probe, authentication guard, delta payloads, ETag 304 caching, and `since` filtering.
+- **Frontend PWA Implementation:**
+  - Full W3C Web App Manifest (`public/manifest.webmanifest`) supporting standalone display mode, orientation overrides, mobile safe areas, brand theme colors (`#070913` / `#4f46e5`), high-res icons (192px, 512px, maskable, Apple touch icon), and 4 quick app shortcuts (`Punch In`, `Employees`, `Holidays`, `Profile`).
+  - Production Service Worker (`public/sw.js`) with dual-tier caching: Cache-First for static assets, Network-First with Stale-While-Revalidate for read APIs (`/employees`, `/departments`, `/holidays`, `/attendance/today`, `/profile/me`), and resilient offline SPA navigation fallback to `/index.html`.
+  - Service Worker lifecycle manager (`src/sw-register.js`) with non-blocking registration and `ems:sw-update-available` broadcast.
+  - Interactive UI components: `PWAInstallPrompt.jsx` (native `beforeinstallprompt` capture with topbar install button and non-intrusive floating banner + iOS Add-to-Home-Screen guide) and `OfflineIndicator.jsx` (real-time connectivity status toast and update prompt).
+  - API client resiliency in `src/api.js` with `isOnline()` checks and direct offline cache fallback.
+
+### 4. Leave & Time-Off Management System
 - **Backend Architecture:**
   - Tables: `leave_balances` (`emp_id`, `casual_leave`, `sick_leave`, `earned_leave`) and `leave_requests` (`id`, `emp_id`, `leave_type`, `start_date`, `end_date`, `reason`, `status`: `pending` | `approved` | `rejected`, `reviewed_by`, `reviewer_comments`).
   - Automated accrual engine: Monthly cron task crediting leave quotas based on company tenure.
